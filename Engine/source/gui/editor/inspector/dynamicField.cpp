@@ -74,7 +74,7 @@ void GuiInspectorDynamicField::setData( const char* data, bool callbacks )
       {
          target->inspectPreApply();
          
-         if( callbacks )
+         if( callbacks)
          {
             if( isRemoval )
                Con::executef( mInspector, "onFieldRemoved", target->getIdString(), mDynField->slotName );

@@ -30,12 +30,13 @@ function initializeShapeEditor()
 
    exec("./gui/Profiles.ed." @ $TorqueScriptFileExtension);
 
+   // Order of GUI loading is important
    exec("./gui/shapeEdPreviewWindow.ed.gui");
-   exec("./gui/shapeEdAnimWindow.ed.gui");
-   exec("./gui/shapeEdAdvancedWindow.ed.gui");
    exec("./gui/ShapeEditorToolbar.ed.gui");
    exec("./gui/shapeEdSelectWindow.ed.gui");
    exec("./gui/shapeEdPropWindow.ed.gui");
+   exec("./gui/shapeEdAdvancedWindow.ed.gui");
+   exec("./gui/shapeEdAnimWindow.ed.gui");
 
    exec("./scripts/shapeEditor.ed." @ $TorqueScriptFileExtension);
    exec("./scripts/shapeEditorHints.ed." @ $TorqueScriptFileExtension);
@@ -47,12 +48,12 @@ function initializeShapeEditor()
    ShapeEdSelectWindow.setVisible(false);
    ShapeEdPropWindow.setVisible(false);
 
-   EditorGui.add(ShapeEdPreviewGui);
-   EditorGui.add(ShapeEdAnimWindow);
-   EditorGui.add(ShapeEdAdvancedWindow);
+   MainSceneTabPanel.add(ShapeEdPreviewGui);
+   MainSceneTabPanel.add(ShapeEdAnimWindow);
+   MainSceneTabPanel.add(ShapeEdAdvancedWindow);
 
-   EditorGui.add(ShapeEdSelectWindow);
-   EditorGui.add(ShapeEdPropWindow);
+   MainSceneTabPanel.add(ShapeEdSelectWindow);
+   MainSceneTabPanel.add(ShapeEdPropWindow);
 
    new ScriptObject(ShapeEditorPlugin)
    {
@@ -185,7 +186,7 @@ function ShapeEditorPlugin::open(%this, %shapeAsset)
       ShapeEdPropWindow.setVisible(true);
       ShapeEdAnimWindow.setVisible(true);
       ShapeEdAdvancedWindow.setVisible(ShapeEditorToolbar-->showAdvanced.getValue());
-      EditorGui.bringToFront(ShapeEdPreviewGui);
+      MainSceneTabPanel.bringToFront(ShapeEdPreviewGui);
 
       ToolsPaletteArray->WorldEditorMove.performClick();
       %this.map.push();
@@ -218,6 +219,23 @@ function ShapeEditorPlugin::open(%this, %shapeAsset)
       Canvas.repaint();
       ShapeEdShapeView.fitToShape();
    }
+}
+
+function EditorGui::SetShapePalletBar()
+{   
+   //Clears the button pallete stack
+   EWToolsPaletteWindow.setStackCtrl(ToolsPaletteArray); //legacy ctrl adhereance
+   EWToolsPaletteWindow.clearButtons();
+   
+   EWToolsPaletteWindow.setActionMap(WorldEditorInspectorPlugin.map);
+   
+   //Adds a button to the pallete stack
+                          //Name     Icon                         Click Command                         Tooltip text    Keybind
+   EWToolsPaletteWindow.addButton("Select", "ToolsModule:arrow_n_image", "GlobalGizmoProfile.mode = \"None\";", "", "Select Arrow", "1"); 
+   EWToolsPaletteWindow.addButton("MoveSelection", "ToolsModule:move_point_n_image", "GlobalGizmoProfile.mode = \"Move\";", "", "Move", "2"); 
+   EWToolsPaletteWindow.addButton("RotateSelection", "ToolsModule:rotate_point_n_image", "GlobalGizmoProfile.mode = \"Rotate\";", "", "Rotate", "3"); 
+   EWToolsPaletteWindow.addButton("RotateSun", "ToolsModule:sun_btn_n_image", "ShapeEdShapeView.editSun = !ShapeEdShapeView.editSun;", "", "Rotate sun", "4"); 
+   EWToolsPaletteWindow.refresh();
 }
 
 function ShapeEditorPlugin::onActivated(%this)
@@ -254,6 +272,7 @@ function ShapeEditorPlugin::onActivated(%this)
    
    EditorGuiToolbarStack.remove( EWorldEditorToolbar );
    EditorGuiToolbarStack.add( ShapeEditorToolbar );
+   EditorGui.SetShapePalletBar();
 }
 
 function ShapeEditorPlugin::initStatusBar(%this)
@@ -353,7 +372,7 @@ function ShapeEditorPlugin::initSettings( %this )
    EditorSettings.beginGroup( "ShapeEditor", true );
 
    // Display options
-   EditorSettings.setDefaultValue( "BackgroundColor",    "0 0 0 100" );
+   EditorSettings.setDefaultValue( "BackgroundColor",    "128 128 128 100" );
    EditorSettings.setDefaultValue( "HighlightMaterial", 1 );
    EditorSettings.setDefaultValue( "ShowNodes", 1 );
    EditorSettings.setDefaultValue( "ShowBounds", 0 );

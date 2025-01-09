@@ -1,51 +1,37 @@
 #ifndef AL_BUFFER_H
 #define AL_BUFFER_H
 
+#include <array>
 #include <atomic>
+#include <cstddef>
+#include <cstdint>
+#include <string_view>
+#include <utility>
 
 #include "AL/al.h"
+#include "AL/alc.h"
 
-#include "albyte.h"
+#include "alc/inprogext.h"
 #include "almalloc.h"
-#include "atomic.h"
-#include "buffer_storage.h"
-#include "inprogext.h"
+#include "alnumeric.h"
+#include "core/buffer_storage.h"
 #include "vector.h"
 
-
-/* User formats */
-enum UserFmtType : unsigned char {
-    UserFmtUByte = FmtUByte,
-    UserFmtShort = FmtShort,
-    UserFmtFloat = FmtFloat,
-    UserFmtMulaw = FmtMulaw,
-    UserFmtAlaw = FmtAlaw,
-    UserFmtDouble = FmtDouble,
-
-    UserFmtIMA4 = 128,
-    UserFmtMSADPCM,
+#ifdef ALSOFT_EAX
+enum class EaxStorage : uint8_t {
+    Automatic,
+    Accessible,
+    Hardware
 };
-enum UserFmtChannels : unsigned char {
-    UserFmtMono = FmtMono,
-    UserFmtStereo = FmtStereo,
-    UserFmtRear = FmtRear,
-    UserFmtQuad = FmtQuad,
-    UserFmtX51 = FmtX51,
-    UserFmtX61 = FmtX61,
-    UserFmtX71 = FmtX71,
-    UserFmtBFormat2D = FmtBFormat2D,
-    UserFmtBFormat3D = FmtBFormat3D,
-};
+#endif // ALSOFT_EAX
 
 
 struct ALbuffer : public BufferStorage {
     ALbitfieldSOFT Access{0u};
 
-    al::vector<al::byte,16> mData;
+    al::vector<std::byte,16> mDataStorage;
 
-    UserFmtType OriginalType{UserFmtShort};
     ALuint OriginalSize{0};
-    ALuint OriginalAlign{0};
 
     ALuint UnpackAlign{0};
     ALuint PackAlign{0};
@@ -59,12 +45,34 @@ struct ALbuffer : public BufferStorage {
     ALuint mLoopEnd{0u};
 
     /* Number of times buffer was attached to a source (deletion can only occur when 0) */
-    RefCount ref{0u};
+    std::atomic<ALuint> ref{0u};
 
     /* Self ID */
     ALuint id{0};
 
-    DISABLE_ALLOC()
+    static void SetName(ALCcontext *context, ALuint id, std::string_view name);
+
+    DISABLE_ALLOC
+
+#ifdef ALSOFT_EAX
+    EaxStorage eax_x_ram_mode{EaxStorage::Automatic};
+    bool eax_x_ram_is_hardware{};
+#endif // ALSOFT_EAX
+};
+
+struct BufferSubList {
+    uint64_t FreeMask{~0_u64};
+    gsl::owner<std::array<ALbuffer,64>*> Buffers{nullptr};
+
+    BufferSubList() noexcept = default;
+    BufferSubList(const BufferSubList&) = delete;
+    BufferSubList(BufferSubList&& rhs) noexcept : FreeMask{rhs.FreeMask}, Buffers{rhs.Buffers}
+    { rhs.FreeMask = ~0_u64; rhs.Buffers = nullptr; }
+    ~BufferSubList();
+
+    BufferSubList& operator=(const BufferSubList&) = delete;
+    BufferSubList& operator=(BufferSubList&& rhs) noexcept
+    { std::swap(FreeMask, rhs.FreeMask); std::swap(Buffers, rhs.Buffers); return *this; }
 };
 
 #endif

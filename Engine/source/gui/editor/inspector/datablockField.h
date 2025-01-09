@@ -23,6 +23,7 @@
 #ifndef _GUI_INSPECTOR_DATABLOCKFIELD_H_
 #define _GUI_INSPECTOR_DATABLOCKFIELD_H_
 
+#include "gui/controls/guiPopUpCtrlEx.h"
 #include "gui/editor/guiInspectorTypes.h"
 
 
@@ -38,9 +39,14 @@ class GuiInspectorDatablockField : public GuiInspectorTypeMenuBase
    protected:
 
       AbstractClassRep *mDesiredClass;
+      SimObjectPtr<GuiBitmapButtonCtrl> mAddButton;
+      SimObjectPtr<GuiButtonCtrl> mEditButton;
+      RectI mBrowseRect;
 
       virtual SimSet* _getDatablockSet() const { return Sim::getDataBlockSet(); }
-      virtual void _populateMenu( GuiPopUpMenuCtrl* menu );
+      void _populateMenu( GuiPopUpMenuCtrlEx* menu ) override;
+      GuiControl* constructEditControl() override;
+      bool updateRects() override;
       
    public:
       
@@ -63,7 +69,7 @@ class GuiInspectorTypeSFXDescriptionName : public GuiInspectorDatablockField
       
    protected:
    
-      virtual SimSet* _getDatablockSet() const { return Sim::getSFXDescriptionSet(); }
+      SimSet* _getDatablockSet() const override { return Sim::getSFXDescriptionSet(); }
    
    public:
       
@@ -83,7 +89,7 @@ class GuiInspectorTypeSFXTrackName : public GuiInspectorDatablockField
       
    protected:
    
-      virtual SimSet* _getDatablockSet() const { return Sim::getSFXTrackSet(); }
+      SimSet* _getDatablockSet() const override { return Sim::getSFXTrackSet(); }
       
    public:
 
@@ -103,7 +109,7 @@ class GuiInspectorTypeSFXEnvironmentName : public GuiInspectorDatablockField
       
    protected:
    
-      virtual SimSet* _getDatablockSet() const { return Sim::getSFXEnvironmentSet(); }
+      SimSet* _getDatablockSet() const override { return Sim::getSFXEnvironmentSet(); }
    
    public:
       DECLARE_CONOBJECT(GuiInspectorTypeSFXEnvironmentName);
@@ -122,7 +128,7 @@ class GuiInspectorTypeSFXAmbienceName : public GuiInspectorDatablockField
       
    protected:
    
-      virtual SimSet* _getDatablockSet() const { return Sim::getSFXAmbienceSet(); }
+      SimSet* _getDatablockSet() const override { return Sim::getSFXAmbienceSet(); }
    
    public:
    

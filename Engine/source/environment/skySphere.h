@@ -66,22 +66,23 @@ public:
    virtual ~SkySphere();
 
    DECLARE_CONOBJECT(SkySphere);
+   DECLARE_CATEGORY("Environment \t Background");
 
    // SimObject
-   void onStaticModified(const char* slotName, const char* newValue);
+   void onStaticModified(const char* slotName, const char* newValue) override;
 
    // ConsoleObject
-   virtual bool onAdd();
-   virtual void onRemove();
+   bool onAdd() override;
+   void onRemove() override;
    static void initPersistFields();
-   virtual void inspectPostApply();
+   void inspectPostApply() override;
 
    // NetObject
-   virtual U32 packUpdate(NetConnection* conn, U32 mask, BitStream* stream);
-   virtual void unpackUpdate(NetConnection* conn, BitStream* stream);
+   U32 packUpdate(NetConnection* conn, U32 mask, BitStream* stream) override;
+   void unpackUpdate(NetConnection* conn, BitStream* stream) override;
 
    // SceneObject
-   void prepRenderImage(SceneRenderState* state);
+   void prepRenderImage(SceneRenderState* state) override;
 
    /// Our render delegate.
    void _renderObject(ObjectRenderInst* ri, SceneRenderState* state, BaseMatInstance* mi);
@@ -107,7 +108,8 @@ public:
    {
       Point3F pos;
       Point3F nor;
-      F32 s, t;
+      F32 s = 0.0f;
+      F32 t = 0.0f;
    };
 
    Vector<SphereVertex> tmpVertices;
@@ -119,8 +121,8 @@ public:
    {
       Point3F pos;
       Point3F nor;
-      F32 s;
-      F32 t;
+      F32 s = 0.0f;
+      F32 t = 0.0f;
    };
 
    Vector<FinalVertexData> finalVertData;

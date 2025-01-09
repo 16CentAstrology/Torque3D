@@ -63,6 +63,7 @@
 class MaterialAsset : public AssetBase
 {
    typedef AssetBase Parent;
+   typedef AssetPtr<MaterialAsset> ConcreteAssetPtr;
 
    String                  mShaderGraphFile;
    StringTableEntry        mScriptFile;
@@ -82,6 +83,16 @@ public:
       Extended
    };
 
+   static const String mErrCodeStrings[U32(MaterialAssetErrCode::Extended) - U32(Parent::Extended) + 1];
+   static U32 getAssetErrCode(ConcreteAssetPtr checkAsset) { if (checkAsset) return checkAsset->mLoadedState; else return 0; }
+
+   static String getAssetErrstrn(U32 errCode)
+   {
+      if (errCode < Parent::Extended) return Parent::getAssetErrstrn(errCode);
+      if (errCode > MaterialAssetErrCode::Extended) return "undefined error";
+      return mErrCodeStrings[errCode - Parent::Extended];
+   };
+
 public:
    MaterialAsset();
    virtual ~MaterialAsset();
@@ -91,9 +102,9 @@ public:
 
    /// Engine.
    static void initPersistFields();
-   virtual void copyTo(SimObject* object);
+   void copyTo(SimObject* object) override;
 
-   void loadMaterial();
+   U32 load() override;
 
    StringTableEntry getMaterialDefinitionName() { return mMatDefinitionName; }
    SimObjectPtr<Material> getMaterialDefinition() { return mMaterialDefinition; }
@@ -119,8 +130,8 @@ public:
    DECLARE_CONOBJECT(MaterialAsset);
 
 protected:
-   virtual void initializeAsset();
-   virtual void onAssetRefresh(void);
+   void initializeAsset() override;
+   void onAssetRefresh(void) override;
 
    static bool setScriptFile(void *obj, const char *index, const char *data)
    {
@@ -149,10 +160,10 @@ public:
    DECLARE_CONOBJECT(GuiInspectorTypeMaterialAssetPtr);
    static void consoleInit();
 
-   virtual GuiControl* constructEditControl();
-   virtual bool updateRects();
+   GuiControl* constructEditControl() override;
+   bool updateRects() override;
 
-   virtual void updateValue();
+   void updateValue() override;
 
    void updatePreviewImage();
    void setPreviewImage(StringTableEntry assetId);

@@ -1781,7 +1781,7 @@ void VertPositionHLSL::processVert( Vector<ShaderComponent*> &componentList,
 
    if (fd.materialFeatures[MFT_isBackground])
    {
-      meta->addStatement(new GenOp("   @ = @.xyww;\r\n", outPosition, outPosition));
+      meta->addStatement(new GenOp("   @.z = 0.0f;\r\n", outPosition));
    }
 
    output = meta;
@@ -1987,11 +1987,11 @@ void ReflectCubeFeatHLSL::processPix(  Vector<ShaderComponent*> &componentList,
 
    if (roughness) //try to grab roughness directly
    {
-      texCube = new GenOp("@.SampleLevel( @, float3(@).rgb, min((1.0 - @)*@ + 1.0, @))", cubeMapTex, cubeMap, reflectVec, roughness, cubeMips, cubeMips);
+      texCube = new GenOp("@.SampleLevel( @, float3(@).rgb, min(@*@ + 1.0, @))", cubeMapTex, cubeMap, reflectVec, roughness, cubeMips, cubeMips);
    }
    else if (glossColor)//failing that, try and find color data
    {
-      texCube = new GenOp("@.SampleLevel( @, float3(@).rgb, min((1.0 - @.b)*@ + 1.0, @))", cubeMapTex, cubeMap, reflectVec, glossColor, cubeMips, cubeMips);
+      texCube = new GenOp("@.SampleLevel( @, float3(@).rgb, min(@.b*@ + 1.0, @))", cubeMapTex, cubeMap, reflectVec, glossColor, cubeMips, cubeMips);
    }
    else //failing *that*, just draw the cubemap
    {
@@ -2217,10 +2217,10 @@ void RTLightingFeatHLSL::processPix(   Vector<ShaderComponent*> &componentList,
    if ( fd.features[MFT_LightMap] || fd.features[MFT_ToneMap] || fd.features[MFT_VertLit] )
       return;
   
-   ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
+   //ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>( componentList[C_CONNECTOR] );
 
    MultiLine *meta = new MultiLine;
-
+      
    // Now the wsPosition and wsView.
    Var *wsPosition = getInWsPosition( componentList );
    Var* worldToTangent = getInWorldToTangent(componentList);
@@ -2280,10 +2280,7 @@ void RTLightingFeatHLSL::processPix(   Vector<ShaderComponent*> &componentList,
    {
       Con::errorf("ShaderGen::RTLightingFeatHLSL()  - failed to generate surface!");
       return;
-   }   
-   Var *roughness = (Var*)LangElement::find("roughness");
-
-   Var *metalness = (Var*)LangElement::find("metalness");
+   }
 
    Var *curColor = (Var*)LangElement::find(getOutputTargetVarName(ShaderFeature::DefaultTarget));
 
@@ -2595,22 +2592,21 @@ void AlphaTestHLSL::processPix(  Vector<ShaderComponent*> &componentList,
 //****************************************************************************
 // GlowMask
 //****************************************************************************
-
 void GlowMaskHLSL::processPix(   Vector<ShaderComponent*> &componentList,
                                  const MaterialFeatureData &fd )
 {
-   output = NULL;
-
-   // Get the output color... and make it black to mask out 
-   // glow passes rendered before us.
-   //
-   // The shader compiler will optimize out all the other
-   // code above that doesn't contribute to the alpha mask.
-   Var *color = (Var*)LangElement::find(getOutputTargetVarName(ShaderFeature::DefaultTarget));
-   if ( color )
-      output = new GenOp( "   @.rgb = 0;\r\n", color );
+   //determine output target
+   ShaderFeature::OutputTarget inTarg, outTarg;
+   inTarg = outTarg = ShaderFeature::DefaultTarget;
+   if (fd.features[MFT_isDeferred])
+   {
+      inTarg = ShaderFeature::RenderTarget1;
+      outTarg = ShaderFeature::RenderTarget3;
+   }
+   Var* inCol = (Var*)LangElement::find(getOutputTargetVarName(inTarg));
+   Var* outCol = (Var*)LangElement::find(getOutputTargetVarName(outTarg));
+   output = new GenOp("   @.rgb += @.rgb*10;\r\n", outCol, inCol);
 }
-
 
 //****************************************************************************
 // RenderTargetZero
@@ -3035,10 +3031,10 @@ void ReflectionProbeFeatHLSL::processPix(Vector<ShaderComponent*> &componentList
    if (fd.features[MFT_LightMap] || fd.features[MFT_ToneMap] || fd.features[MFT_VertLit])
       return;
 
-   ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>(componentList[C_CONNECTOR]);
+   //ShaderConnector *connectComp = dynamic_cast<ShaderConnector *>(componentList[C_CONNECTOR]);
 
    MultiLine *meta = new MultiLine;
-   
+      
    // Now the wsPosition and wsView.
    Var* wsPosition = getInWsPosition(componentList);
    Var* worldToTangent = getInWorldToTangent(componentList);

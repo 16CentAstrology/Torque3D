@@ -49,10 +49,10 @@ public:
   /*C*/             afxEA_AnimClip();
   /*C*/             ~afxEA_AnimClip();
 
-  virtual void      ea_set_datablock(SimDataBlock*);
-  virtual bool      ea_start();
-  virtual bool      ea_update(F32 dt);
-  virtual void      ea_finish(bool was_stopped);
+  void      ea_set_datablock(SimDataBlock*) override;
+  bool      ea_start() override;
+  bool      ea_update(F32 dt) override;
+  void      ea_finish(bool was_stopped) override;
 };
 
 //~~~~~~~~~~~~~~~~~~~~//
@@ -89,7 +89,7 @@ bool afxEA_AnimClip::ea_start()
   do_runtime_substitutions();
 
   afxConstraint* pos_constraint = getPosConstraint();
-  if (mFull_lifetime == INFINITE_LIFETIME && pos_constraint != 0)
+  if (mFull_lifetime == (F32)INFINITE_LIFETIME && pos_constraint != 0)
     anim_lifetime = pos_constraint->getAnimClipDuration(clip_data->clip_name);
   else 
     anim_lifetime = mFull_lifetime;
@@ -128,7 +128,7 @@ bool afxEA_AnimClip::ea_update(F32 dt)
     if (go_for_it)
     {
       F32 rate = clip_data->rate/mProp_time_factor;
-      F32 pos = mFmod(mLife_elapsed, anim_lifetime)/anim_lifetime;
+      F32 pos = (anim_lifetime>0) ? mFmod(mLife_elapsed, anim_lifetime)/anim_lifetime : 0;
       pos = mFmod(pos + clip_data->pos_offset, 1.0);
       if (clip_data->rate < 0) 
         pos = 1.0f - pos;
@@ -176,13 +176,13 @@ class afxEA_AnimClipDesc : public afxEffectAdapterDesc, public afxEffectDefs
   static afxEA_AnimClipDesc desc;
 
 public:
-  virtual bool  testEffectType(const SimDataBlock*) const;
-  virtual bool  requiresStop(const afxEffectWrapperData*, const afxEffectTimingData&) const;
-  virtual bool  runsOnServer(const afxEffectWrapperData*) const { return true; }
-  virtual bool  runsOnClient(const afxEffectWrapperData*) const { return true; }
-  virtual bool  isPositional(const afxEffectWrapperData*) const { return false; }
+  bool  testEffectType(const SimDataBlock*) const override;
+  bool  requiresStop(const afxEffectWrapperData*, const afxEffectTimingData&) const override;
+  bool  runsOnServer(const afxEffectWrapperData*) const override { return true; }
+  bool  runsOnClient(const afxEffectWrapperData*) const override { return true; }
+  bool  isPositional(const afxEffectWrapperData*) const override { return false; }
 
-  virtual afxEffectWrapper* create() const { return new afxEA_AnimClip; }
+  afxEffectWrapper* create() const override { return new afxEA_AnimClip; }
 };
 
 afxEA_AnimClipDesc afxEA_AnimClipDesc::desc;

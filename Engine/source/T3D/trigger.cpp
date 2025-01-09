@@ -27,6 +27,7 @@
 #include "console/consoleTypes.h"
 #include "console/engineAPI.h"
 #include "collision/boxConvex.h"
+#include "console/script.h"
 
 #include "core/stream/bitStream.h"
 #include "math/mathIO.h"
@@ -36,7 +37,6 @@
 #include "T3D/physics/physicsPlugin.h"
 #include "T3D/physics/physicsBody.h"
 #include "T3D/physics/physicsCollision.h"
-
 
 bool Trigger::smRenderTriggers = false;
 
@@ -173,7 +173,7 @@ Trigger::Trigger()
    mPhysicsRep = NULL;
    mTripOnce = false;
    mTrippedBy = 0xFFFFFFFF;
-   mTripCondition = "";
+   mTripIf = "";
 
    //Default up a basic square
    Point3F vecs[3] = { Point3F(1.0, 0.0, 0.0),
@@ -379,8 +379,8 @@ void Trigger::initPersistFields()
       "representing the edges extending from the corner.\n");
 
    addField("TripOnce", TypeBool, Offset(mTripOnce, Trigger),"Do we trigger callacks just the once?");
-   addField("TripCondition", TypeRealString, Offset(mTripCondition, Trigger),"evaluation condition to trip callbacks (true/false)");
-   addField("TrippedBy", TypeS32, Offset(mTrippedBy, Trigger), "typemask filter");
+   addField("tripIf", TypeRealString, Offset(mTripIf, Trigger),"evaluation condition to trip callbacks (true/false)");
+   addField("TrippedBy", TypeGameTypeMasksType, Offset(mTrippedBy, Trigger), "typemask filter");
    addProtectedField("enterCommand", TypeCommand, Offset(mEnterCommand, Trigger), &setEnterCmd, &defaultProtectedGetFn,
       "The command to execute when an object enters this trigger. Object id stored in %%obj. Maximum 1023 characters." );
    addProtectedField("leaveCommand", TypeCommand, Offset(mLeaveCommand, Trigger), &setLeaveCmd, &defaultProtectedGetFn,
@@ -554,7 +554,7 @@ void Trigger::setTransform(const MatrixF & mat)
       base.mul(mWorldToObj);
       mClippedList.setBaseTransform(base);
 
-      setMaskBits(TransformMask | ScaleMask);
+      setMaskBits((U32)TransformMask | (U32)ScaleMask);
    }
 
    testObjects();
@@ -564,7 +564,7 @@ void Trigger::onUnmount( SceneObject *obj, S32 node )
 {
     Parent::onUnmount( obj, node );
    // Make sure the client get's the final server pos.
-   setMaskBits(TransformMask | ScaleMask);
+   setMaskBits((U32)TransformMask | (U32)ScaleMask);
 }
 
 void Trigger::prepRenderImage( SceneRenderState *state )
@@ -697,13 +697,13 @@ bool Trigger::testTrippable()
 
 bool Trigger::testCondition()
 {
-   if (mTripCondition.isEmpty())
+   if (mTripIf.isEmpty())
       return true; //we've got no tests to run so just do it
 
    //test the mapper plugged in condition line
    String resVar = getIdString() + String(".result");
    Con::setBoolVariable(resVar.c_str(), false);
-   String command = resVar + "=" + mTripCondition + ";";
+   String command = resVar + "=" + mTripIf + ";";
    Con::evaluatef(command.c_str());
    if (Con::getBoolVariable(resVar.c_str()) == 1)
    {

@@ -134,11 +134,11 @@ public:
    RiverNodeEvent() { mNodeList = NULL; }
    virtual ~RiverNodeEvent() { }
 
-   virtual void pack(NetConnection*, BitStream*);
-   virtual void unpack(NetConnection*, BitStream*);
+   void pack(NetConnection*, BitStream*) override;
+   void unpack(NetConnection*, BitStream*) override;
 
-   virtual void copyIntoList(NodeListManager::NodeList* copyInto);
-   virtual void padListToSize();
+   void copyIntoList(NodeListManager::NodeList* copyInto) override;
+   void padListToSize() override;
 
    DECLARE_CONOBJECT(RiverNodeEvent);
 };
@@ -266,7 +266,7 @@ public:
    RiverNodeListNotify( River* river, U32 listId ) { mRiver = river; mListId = listId; }
    virtual ~RiverNodeListNotify() { mRiver = NULL; }
 
-   virtual void sendNotification( NodeListManager::NodeList* list );
+   void sendNotification( NodeListManager::NodeList* list ) override;
 };
 
 void RiverNodeListNotify::sendNotification( NodeListManager::NodeList* list )
@@ -648,7 +648,8 @@ void River::initPersistFields()
 
    addGroup( "Internal" );
 
-      addProtectedField( "Node", TypeString, 0, &addNodeFromField, &emptyStringProtectedGetFn, "For internal use, do not modify." );
+      addProtectedField( "Node", TypeString, 0, &addNodeFromField, &emptyStringProtectedGetFn, "For internal use, do not modify.",
+         AbstractClassRep::FIELD_HideInInspectors | AbstractClassRep::FIELD_SpecialtyArrayField);
 
    endGroup( "Internal" );
 
@@ -783,6 +784,38 @@ bool River::writeField( StringTableEntry fieldname, const char *value )
       return false;
 
    return Parent::writeField( fieldname, value );
+}
+
+U32 River::getSpecialFieldSize(StringTableEntry fieldName)
+{
+   if (fieldName == StringTable->insert("node"))
+   {
+      return mNodes.size();
+   }
+
+   return 0;
+}
+
+const char* River::getSpecialFieldOut(StringTableEntry fieldName, const U32& index)
+{
+   if (fieldName == StringTable->insert("node"))
+   {
+      if (index >= mNodes.size())
+         return NULL;
+
+      const RiverNode& node = mNodes[index];
+
+      char buffer[1024];
+      dMemset(buffer, 0, 1024);
+      dSprintf(buffer, 1024, "Node = \"%f %f %f %f %f %f %f %f\";", node.point.x, node.point.y, node.point.z,
+         node.width,
+         node.depth,
+         node.normal.x, node.normal.y, node.normal.z);
+
+      return StringTable->insert(buffer);
+   }
+
+   return NULL;
 }
 
 void River::innerRender( SceneRenderState *state )

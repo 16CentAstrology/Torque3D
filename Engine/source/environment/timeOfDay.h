@@ -76,18 +76,19 @@ public:
 	static void initPersistFields();
    static void consoleInit();
    DECLARE_CONOBJECT( TimeOfDay );
-   void inspectPostApply();
+   DECLARE_CATEGORY("Environment \t Weather");
+   void inspectPostApply() override;
 
    // SimObject
-   virtual bool onAdd();
-   virtual void onRemove();
+   bool onAdd() override;
+   void onRemove() override;
 
    // NetObject
-   U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-   void unpackUpdate( NetConnection *conn, BitStream *stream );  
+   U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream ) override;
+   void unpackUpdate( NetConnection *conn, BitStream *stream ) override;  
 
    // ProcessObject   
-   virtual void processTick( const Move *move );
+   void processTick( const Move *move ) override;
 
    F32 getAzimuthRads() { return mAzimuth; }
    F32 getElevationRads() { return mElevation; }

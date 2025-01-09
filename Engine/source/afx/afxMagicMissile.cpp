@@ -67,7 +67,7 @@
 class ObjectDeleteEvent : public SimEvent
 {
 public:
-  void process(SimObject *object)
+  void process(SimObject *object) override
   {
     object->deleteObject();
   }
@@ -527,7 +527,8 @@ bool afxMagicMissileData::preload(bool server, String &errorStr)
             Con::errorf(ConsoleLogEntry::General, "afxMagicMissileData::preload: Invalid packet, bad datablockid(lightDesc): %d", lightDescId);   
    }
 
-   if (!mProjectileShapeAsset.isNull()) 
+   U32 assetStatus = ShapeAsset::getAssetErrCode(mProjectileShapeAsset);
+   if (assetStatus == AssetBase::Ok || assetStatus == AssetBase::UsingFallback)
    {
       projectileShape = mProjectileShapeAsset->getShapeResource();
       if (bool(projectileShape) == false)

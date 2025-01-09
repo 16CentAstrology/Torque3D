@@ -389,9 +389,10 @@ bool TSStatic::_createShape()
    SAFE_DELETE(mPhysicsRep);
    SAFE_DELETE(mShapeInstance);
    mAmbientThread = NULL;
-   mShape = NULL;
+   //mShape = NULL;
 
-   if(!mShapeAsset.isNull())
+   U32 assetStatus = ShapeAsset::getAssetErrCode(mShapeAsset);
+   if (assetStatus == AssetBase::Ok || assetStatus == AssetBase::UsingFallback)
    {
       //Special-case handling, usually because we set noShape
       mShape = mShapeAsset->getShapeResource();
@@ -603,15 +604,6 @@ void TSStatic::onRemove()
       mCubeReflector.unregisterReflector();
 
    Parent::onRemove();
-}
-
-void TSStatic::_onResourceChanged(const Torque::Path& path)
-{
-   if (path != Path(mShapeName))
-      return;
-
-   _createShape();
-   _updateShouldTick();
 }
 
 void TSStatic::onShapeChanged()
@@ -1628,8 +1620,11 @@ void TSStatic::updateMaterials()
 
 void TSStatic::getUtilizedAssets(Vector<StringTableEntry>* usedAssetsList)
 {
-   if(!mShapeAsset.isNull() && mShapeAsset->getAssetId() != ShapeAsset::smNoShapeAssetFallback)
+   U32 assetStatus = ShapeAsset::getAssetErrCode(mShapeAsset);
+   if (assetStatus == AssetBase::Ok)
+   {
       usedAssetsList->push_back_unique(mShapeAsset->getAssetId());
+   }
 }
 
 //------------------------------------------------------------------------
@@ -1641,7 +1636,7 @@ void TSStatic::onInspect(GuiInspector* inspector)
 {
    //if (mShapeAsset == nullptr)
       return;
-
+/*
    //Put the GameObject group before everything that'd be gameobject-effecting, for orginazational purposes
    GuiInspectorGroup* materialGroup = inspector->findExistentGroup(StringTable->insert("Materials"));
    if (!materialGroup)
@@ -1709,6 +1704,7 @@ void TSStatic::onInspect(GuiInspector* inspector)
          }
       }
    }
+   */
 }
 #endif
 DefineEngineMethod(TSStatic, getTargetName, const char*, (S32 index), (0),
@@ -1903,4 +1899,18 @@ DefineEngineMethod(TSStatic, getNodeTransform, TransformF, (const char *nodeName
    MatrixF xf(true);
    object->getNodeTransform(nodeName, MatrixF::Identity, &xf);
    return xf;
+}
+
+DefineEngineMethod(TSStatic, setSkinName, void, (const char* name), ,
+   "@brief Apply a new skin to this shape.\n\n"
+
+   "'Skinning' the shape effectively renames the material targets, allowing "
+   "different materials to be used on different instances of the same model.\n\n"
+
+   "@param name name of the skin to apply\n\n"
+
+   "@see skin\n"
+   "@see getSkinName()\n")
+{
+   object->setSkinName(name);
 }

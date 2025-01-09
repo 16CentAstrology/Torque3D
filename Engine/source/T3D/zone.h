@@ -55,7 +55,7 @@ class Zone : public SceneAmbientSoundObject< ScenePolyhedralZone >
    protected:
 
       // SceneVolume.
-      virtual ColorI _getDefaultEditorSolidColor() const { return ColorI( 255, 0, 0, 45 ); }
+      ColorI _getDefaultEditorSolidColor() const override { return ColorI( 255, 0, 0, 45 ); }
 
    public:
 
@@ -68,7 +68,7 @@ class Zone : public SceneAmbientSoundObject< ScenePolyhedralZone >
       // SimObject
       DECLARE_CONOBJECT( Zone );
       DECLARE_DESCRIPTION( "A volume that encloses objects for visibility culling." );
-      DECLARE_CATEGORY( "3D" );
+      DECLARE_CATEGORY("Volume");
 
       static void consoleInit();
 };

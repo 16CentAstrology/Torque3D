@@ -104,7 +104,7 @@ ConsoleSetType(TypeImageAssetId)
    }
 
    // Warn.
-   Con::warnf("(TypeAssetId) - Cannot set multiple args to a single asset.");
+   Con::warnf("(TypeImageAssetId) - Cannot set multiple args to a single asset.");
 }
 //-----------------------------------------------------------------------------
 
@@ -125,13 +125,18 @@ ImplementEnumType(ImageAssetType,
 
 EndImplementEnumType;
 
-
+const String ImageAsset::mErrCodeStrings[] =
+{
+   "TooManyMips",
+   "UnKnown"
+};
 //-----------------------------------------------------------------------------
-ImageAsset::ImageAsset() : AssetBase(), mUseMips(true), mIsHDRImage(false), mIsValidImage(false), mImageType(Albedo)
+ImageAsset::ImageAsset() : AssetBase(), mIsValidImage(false), mUseMips(true), mIsHDRImage(false), mImageType(Albedo)
 {
    mImageFileName = StringTable->EmptyString();
    mImagePath = StringTable->EmptyString();
    mLoadedState = AssetErrCode::NotLoaded;
+   mChangeSignal.notify(this, &ImageAsset::onAssetRefresh);
 }
 
 //-----------------------------------------------------------------------------
@@ -202,7 +207,7 @@ U32 ImageAsset::getAssetByFilename(StringTableEntry fileName, AssetPtr<ImageAsse
    {
       //acquire and bind the asset, and return it out
       imageAsset->setAssetId(query.mAssetList[0]);
-      return (*imageAsset)->mLoadedState;
+      return (*imageAsset)->load();
    }
 }
 
@@ -234,18 +239,16 @@ U32 ImageAsset::getAssetById(StringTableEntry assetId, AssetPtr<ImageAsset>* ima
 
    if (imageAsset->notNull())
    {
-      return (*imageAsset)->mLoadedState;
+      return (*imageAsset)->load();
    }
    else
    {
       if (imageAsset->isNull())
       {
-         //Well that's bad, loading the fallback failed.
-         Con::warnf("ImageAsset::getAssetById - Finding of asset with id %s failed with no fallback asset", assetId);
          return AssetErrCode::Failed;
       }
 
-      //handle noshape not being loaded itself
+      //handle fallback not being loaded itself
       if ((*imageAsset)->mLoadedState == BadFileReference)
       {
          Con::warnf("ImageAsset::getAssetById - Finding of asset with id %s failed, and fallback asset reported error of Bad File Reference.", assetId);
@@ -266,39 +269,75 @@ void ImageAsset::copyTo(SimObject* object)
    Parent::copyTo(object);
 }
 
-void ImageAsset::loadImage()
+U32 ImageAsset::load()
 {
+   if (mLoadedState == AssetErrCode::Ok) return mLoadedState;
    if (mImagePath)
    {
+      // this is a target.
+      if (mImageFileName[0] == '$' || mImageFileName[0] == '#')
+      {
+         NamedTexTargetRef namedTarget = NamedTexTarget::find(mImageFileName + 1);
+         if (namedTarget) {
+            mLoadedState = Ok;
+            mIsValidImage = true;
+            return mLoadedState;
+         }
+         else
+         {
+            Con::errorf("ImageAsset::initializeAsset: Attempted find named target %s failed.", mImageFileName);
+         }
+      }
       if (!Torque::FS::IsFile(mImagePath))
       {
          Con::errorf("ImageAsset::initializeAsset: Attempted to load file %s but it was not valid!", mImageFileName);
          mLoadedState = BadFileReference;
-         return;
+         return mLoadedState;
       }
 
       mLoadedState = Ok;
       mIsValidImage = true;
-      mChangeSignal.trigger();
-      return;
+      return mLoadedState;
    }
    mLoadedState = BadFileReference;
 
    mIsValidImage = false;
+   return mLoadedState;
 }
 
 void ImageAsset::initializeAsset()
 {
    ResourceManager::get().getChangedSignal().notify(this, &ImageAsset::_onResourceChanged);
 
-   mImagePath = getOwned() ? expandAssetFilePath(mImageFileName) : mImagePath;
-   loadImage();
+   if (mImageFileName[0] != '$' && mImageFileName[0] != '#')
+   {
+      mImagePath = getOwned() ? expandAssetFilePath(mImageFileName) : mImagePath;
+   }
+   else
+   {
+      mImagePath = mImageFileName;
+   }
 }
 
 void ImageAsset::onAssetRefresh()
 {
-   mImagePath = getOwned() ? expandAssetFilePath(mImageFileName) : mImagePath;
-   loadImage();
+   if (mImageFileName[0] != '$' && mImageFileName[0] != '#')
+   {
+      mImagePath = getOwned() ? expandAssetFilePath(mImageFileName) : mImagePath;
+   }
+   else
+   {
+      mImagePath = mImageFileName;
+   }
+
+   AssetManager::typeAssetDependsOnHash::Iterator assetDependenciesItr = mpOwningAssetManager->getDependedOnAssets()->find(mpAssetDefinition->mAssetId);
+   // Iterate all dependencies.
+   while (assetDependenciesItr != mpOwningAssetManager->getDependedOnAssets()->end() && assetDependenciesItr->key == mpAssetDefinition->mAssetId)
+   {
+      StringTableEntry assetId = assetDependenciesItr->value;
+      AssetBase* dependent = AssetDatabase.acquireAsset<AssetBase>(assetId);
+      dependent->refreshAsset();
+   }
 }
 
 void ImageAsset::_onResourceChanged(const Torque::Path& path)
@@ -307,8 +346,6 @@ void ImageAsset::_onResourceChanged(const Torque::Path& path)
       return;
 
    refreshAsset();
-
-   //loadImage();
 }
 
 void ImageAsset::setImageFileName(const char* pScriptFile)
@@ -323,13 +360,9 @@ void ImageAsset::setImageFileName(const char* pScriptFile)
    refreshAsset();
 }
 
-const GBitmap& ImageAsset::getImage()
-{
-   return GBitmap(); //TODO fix this
-}
-
 GFXTexHandle ImageAsset::getTexture(GFXTextureProfile* requestedProfile)
 {
+   load();
    if (mResourceMap.contains(requestedProfile))
    {
       mLoadedState = Ok;
@@ -337,20 +370,34 @@ GFXTexHandle ImageAsset::getTexture(GFXTextureProfile* requestedProfile)
    }
    else
    {
-      //If we don't have an existing map case to the requested format, we'll just create it and insert it in
-      GFXTexHandle newTex = TEXMGR->createTexture(mImagePath, requestedProfile);
-      if (newTex)
+      // this is a target.
+      if (mImageFileName[0] == '$' || mImageFileName[0] == '#')
       {
-         mResourceMap.insert(requestedProfile, newTex);
          mLoadedState = Ok;
-         return newTex;
+         NamedTexTargetRef namedTarget = NamedTexTarget::find(mImageFileName + 1);
+         if (namedTarget.isValid() && namedTarget->getTexture())
+         {
+            mNamedTarget = namedTarget;
+            mIsValidImage = true;
+            mResourceMap.insert(requestedProfile, mNamedTarget->getTexture());
+            mChangeSignal.trigger();
+            return mNamedTarget->getTexture();
+         }
       }
       else
-         mLoadedState = BadFileReference;
+      {
+         //If we don't have an existing map case to the requested format, we'll just create it and insert it in
+         GFXTexHandle newTex = TEXMGR->createTexture(mImagePath, requestedProfile);
+         if (newTex)
+         {
+            mResourceMap.insert(requestedProfile, newTex);
+            mLoadedState = Ok;
+            return newTex;
+         }
+         else
+            mLoadedState = BadFileReference;
+      }
    }
-
-   //if (mTexture.isValid())
-   //   return mTexture;
 
    return nullptr;
 }
@@ -485,13 +532,13 @@ GuiControl* GuiInspectorTypeImageAssetPtr::constructEditControl()
 
    if (mInspector->getInspectObject() != nullptr)
    {
-      dSprintf(szBuffer, sizeof(szBuffer), "AssetBrowser.showDialog(\"ImageAsset\", \"AssetBrowser.changeAsset\", %s, %s);",
-         mInspector->getIdString(), mCaption);
+      dSprintf(szBuffer, sizeof(szBuffer), "AssetBrowser.showDialog(\"ImageAsset\", \"AssetBrowser.changeAsset\", %s);",
+         getIdString());
       mBrowseButton->setField("Command", szBuffer);
 
       setDataField(StringTable->insert("targetObject"), NULL, mInspector->getInspectObject()->getIdString());
 
-      previewImage = mInspector->getInspectObject()->getDataField(mCaption, NULL);
+      previewImage = getData();
    }
    else
    {
@@ -675,7 +722,7 @@ void GuiInspectorTypeImageAssetPtr::updatePreviewImage()
 {
    const char* previewImage;
    if (mInspector->getInspectObject() != nullptr)
-      previewImage = mInspector->getInspectObject()->getDataField(mCaption, NULL);
+      previewImage = getData();
    else
       previewImage = Con::getVariable(mVariableName);
 
@@ -744,7 +791,7 @@ void GuiInspectorTypeImageAssetPtr::setPreviewImage(StringTableEntry assetId)
 IMPLEMENT_CONOBJECT(GuiInspectorTypeImageAssetId);
 
 ConsoleDocClass(GuiInspectorTypeImageAssetId,
-   "@brief Inspector field type for Shapes\n\n"
+   "@brief Inspector field type for Images\n\n"
    "Editor use only.\n\n"
    "@internal"
 );

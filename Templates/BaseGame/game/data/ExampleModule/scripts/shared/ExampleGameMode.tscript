@@ -1,0 +1,159 @@
+if(!isObject(ExampleGameMode))
+   new GameMode(ExampleGameMode){};
+
+//-----------------------------------------------------------------------------
+// The server has started up so do some game start up
+//-----------------------------------------------------------------------------
+function ExampleGameMode::onMissionStart(%this)
+{
+   //set up the game and game variables
+   %this.initGameVars();
+
+   if (%this.Running)
+   {
+      error("onMissionStart: End the game first!");
+      return;
+   }
+
+   // Inform the client we're starting up
+   for (%clientIndex = 0; %clientIndex < ClientGroup.getCount(); %clientIndex++)
+   {
+      %cl = ClientGroup.getObject(%clientIndex);
+      commandToClient(%cl, 'GameStart');
+   }
+      
+   %this.Running = true;
+}
+
+function ExampleGameMode::onMissionEnded(%this)
+{
+   if (!%this.Running)
+   {
+      error("onMissionEnded: No game running!");
+      return;
+   }
+
+   for (%clientIndex = 0; %clientIndex < ClientGroup.getCount(); %clientIndex++)
+   {
+      %cl = ClientGroup.getObject(%clientIndex);
+      commandToClient(%cl, 'GameEnd', %this.EndGamePause);
+   }
+
+   %this.Running = false;
+}
+
+function ExampleGameMode::onMissionReset(%this)
+{
+   // Called by resetMission(), after all the temporary mission objects
+   // have been deleted.
+   %this.initGameVars();
+}
+
+function ExampleGameMode::initGameVars(%this)
+{
+}
+
+function ExampleGameMode::onGameDurationEnd(%this)
+{
+}
+
+function ExampleGameMode::onClientEnterGame(%this, %client)
+{
+   // This function currently relies on some helper functions defined in
+   // core/scripts/spawn.cs. For custom spawn behaviors one can either
+   // override the properties on the SpawnSphere's or directly override the
+   // functions themselves.
+
+   //echo (%game @"\c4 -> "@ %game.class @" -> GameCore::onClientEntergame");
+
+   // Sync the client's clocks to the server's
+   commandToClient(%client, 'SyncClock', $Sim::Time - %this.StartTime);
+   
+   //Set the player name based on the client's connection data
+   %client.setPlayerName(%client.connectData);
+
+   // Inform the client of all the other clients
+   %count = ClientGroup.getCount();
+   for (%cl = 0; %cl < %count; %cl++)
+   {
+      %other = ClientGroup.getObject(%cl);
+      if ((%other != %client))
+      {
+         // These should be "silent" versions of these messages...
+         messageClient(%client, 'MsgClientJoin', "",
+            %other.playerName,
+            %other,
+            %other.sendGuid,
+            %other.team,
+            %other.score,
+            %other.kills,
+            %other.deaths,
+            %other.isAIControlled(),
+            %other.isAdmin,
+            %other.isSuperAdmin);
+      }
+   }
+
+   // Inform the client we've joined up
+   messageClient(%client,
+      'MsgClientJoin', '\c2Welcome to the Torque demo app %1.',
+      %client.playerName,
+      %client,
+      %client.sendGuid,
+      %client.team,
+      %client.score,
+      %client.kills,
+      %client.deaths,
+      %client.isAiControlled(),
+      %client.isAdmin,
+      %client.isSuperAdmin);
+
+   // Inform all the other clients of the new guy
+   messageAllExcept(%client, -1, 'MsgClientJoin', '\c1%1 joined the game.',
+      %client.playerName,
+      %client,
+      %client.sendGuid,
+      %client.team,
+      %client.score,
+      %client.kills,
+      %client.deaths,
+      %client.isAiControlled(),
+      %client.isAdmin,
+      %client.isSuperAdmin);
+}
+
+function ExampleGameMode::onClientLeaveGame(%this, %client)
+{
+   // Cleanup the camera
+   if (isObject(%client.camera))
+      %client.camera.delete();
+}
+
+function ExampleGameMode::onInitialControlSet(%this)
+{
+   
+}
+
+function ExampleGameMode::onSceneLoaded(%this)
+{
+   echo("===================================");
+   echo("ExampleGameMode - Scene is loaded");  
+}
+
+function ExampleGameMode::onSceneUnloaded(%this)
+{
+   echo("===================================");
+   echo("ExampleGameMode - Scene is unloaded");  
+}
+
+function ExampleGameMode::onSubsceneLoaded(%this)
+{
+   echo("===================================");
+   echo("ExampleGameMode - Subscene is loaded");  
+}
+
+function ExampleGameMode::onSubsceneUnloaded(%this)
+{
+   echo("===================================");
+   echo("ExampleGameMode - Subscene is unloaded");  
+}

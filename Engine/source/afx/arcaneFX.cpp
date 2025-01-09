@@ -31,8 +31,9 @@
 #include "T3D/gameBase/gameProcess.h"
 #include "T3D/player.h"
 #include "math/mathUtils.h"
-#include "console/compiler.h"
+
 #include "console/engineAPI.h"
+#include "console/script.h"
 
 #include "afx/afxChoreographer.h"
 #include "afx/afxSelectron.h"
@@ -68,11 +69,11 @@ public:
   ClientZoneInEvent() { mGuaranteeType = Guaranteed; }
   ~ClientZoneInEvent() { }
 
-  virtual void pack(NetConnection*, BitStream*bstream) { }
-  virtual void write(NetConnection*, BitStream *bstream) { }
-  virtual void unpack(NetConnection* /*ps*/, BitStream *bstream) { }
+  void pack(NetConnection*, BitStream*bstream) override { }
+  void write(NetConnection*, BitStream *bstream) override { }
+  void unpack(NetConnection* /*ps*/, BitStream *bstream) override { }
 
-  virtual void process(NetConnection* conn)
+  void process(NetConnection* conn) override
   {
     GameConnection* game_conn = dynamic_cast<GameConnection*>(conn);
     if (game_conn && !game_conn->isZonedIn())
@@ -82,7 +83,6 @@ public:
   }
 
   DECLARE_CONOBJECT(ClientZoneInEvent);
-  DECLARE_CATEGORY("AFX");
 };
 IMPLEMENT_CO_SERVEREVENT_V1(ClientZoneInEvent);
 
@@ -672,7 +672,7 @@ DefineEngineFunction(wasSyntaxError, bool, (),,
                      "for detecting syntax errors after reloading a script.\n\n"
                      "@ingroup AFX")
 {
-  return Compiler::gSyntaxError;
+   return Con::getLastEvalResult().valid == false;
 }
 
 //~~~~~~~~~~~~~~~~~~~~//~~~~~~~~~~~~~~~~~~~~//

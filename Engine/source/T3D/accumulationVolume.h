@@ -59,7 +59,7 @@ class AccumulationVolume : public ScenePolyhedralSpace
       mutable Vector< SceneObject* > mVolumeQueryList;
 
       // SceneSpace.
-      virtual void _renderObject( ObjectRenderInst* ri, SceneRenderState* state, BaseMatInstance* overrideMat );
+      void _renderObject( ObjectRenderInst* ri, SceneRenderState* state, BaseMatInstance* overrideMat ) override;
 
       DECLARE_IMAGEASSET(AccumulationVolume, Texture, onTextureChanged, GFXStaticTextureSRGBProfile);
       DECLARE_ASSET_NET_SETGET(AccumulationVolume, Texture, -1);
@@ -74,11 +74,11 @@ class AccumulationVolume : public ScenePolyhedralSpace
       // SimObject.
       DECLARE_CONOBJECT( AccumulationVolume );
       DECLARE_DESCRIPTION( "Allows objects in an area to have accumulation effect applied." );
-      DECLARE_CATEGORY( "3D Scene" );
+      DECLARE_CATEGORY("Volume");
 
-      virtual bool onAdd();
-      virtual void onRemove();
-      void inspectPostApply();
+      bool onAdd() override;
+      void onRemove() override;
+      void inspectPostApply() override;
       void setTexture( const String& name );
 
       // Static Functions.
@@ -93,12 +93,12 @@ class AccumulationVolume : public ScenePolyhedralSpace
       static void updateObject(SceneObject* object);
 
       // Network
-      U32 packUpdate( NetConnection *, U32 mask, BitStream *stream );
-      void unpackUpdate( NetConnection *, BitStream *stream );
+      U32 packUpdate( NetConnection *, U32 mask, BitStream *stream ) override;
+      void unpackUpdate( NetConnection *, BitStream *stream ) override;
 
       // SceneObject.
-      virtual void buildSilhouette( const SceneCameraState& cameraState, Vector< Point3F >& outPoints );
-      virtual void setTransform( const MatrixF& mat );
+      void buildSilhouette( const SceneCameraState& cameraState, Vector< Point3F >& outPoints ) override;
+      void setTransform( const MatrixF& mat ) override;
 };
 
 #endif // !_AccumulationVolume_H_

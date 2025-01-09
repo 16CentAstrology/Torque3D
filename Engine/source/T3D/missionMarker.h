@@ -67,24 +67,25 @@ class MissionMarker : public ShapeBase
       MissionMarker();
 
       // GameBase
-      bool onNewDataBlock( GameBaseData *dptr, bool reload );
+      bool onNewDataBlock( GameBaseData *dptr, bool reload ) override;
 
       // SceneObject
-      void setTransform(const MatrixF &mat);
+      void setTransform(const MatrixF &mat) override;
 
       // SimObject
-      bool onAdd();
-      void onRemove();
-      void onEditorEnable();
-      void onEditorDisable();
+      bool onAdd() override;
+      void onRemove() override;
+      void onEditorEnable() override;
+      void onEditorDisable() override;
 
-      void inspectPostApply();
+      void inspectPostApply() override;
 
       // NetObject
-      U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-      void unpackUpdate(NetConnection *conn,           BitStream *stream);
+      U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream) override;
+      void unpackUpdate(NetConnection *conn,           BitStream *stream) override;
 
       DECLARE_CONOBJECT(MissionMarker);
+      DECLARE_CATEGORY("Markers");
       static void initPersistFields();
 };
 
@@ -109,15 +110,15 @@ class WayPoint : public MissionMarker
       WayPoint();
 
       // ShapeBase: only ever added to scene if in the editor
-      void setHidden(bool hidden);
+      void setHidden(bool hidden) override;
 
       // SimObject
-      bool onAdd();
-      void inspectPostApply();
+      bool onAdd() override;
+      void inspectPostApply() override;
 
       // NetObject
-      U32 packUpdate(NetConnection *conn, U32 mask, BitStream *stream);
-      void unpackUpdate(NetConnection *conn, BitStream *stream);
+      U32 packUpdate(NetConnection *conn, U32 mask, BitStream *stream) override;
+      void unpackUpdate(NetConnection *conn, BitStream *stream) override;
 
       // field data
       StringTableEntry              mName;
@@ -140,8 +141,8 @@ class SpawnSphere : public MissionMarker
       SpawnSphere();
 
       // SimObject
-      bool onAdd();
-      void inspectPostApply();
+      bool onAdd() override;
+      void inspectPostApply() override;
 
       // NetObject
       enum SpawnSphereMasks
@@ -150,12 +151,12 @@ class SpawnSphere : public MissionMarker
          NextFreeMask     = Parent::NextFreeMask << 1
       };
 
-      U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream);
-      void unpackUpdate(NetConnection *conn,           BitStream *stream);
+      U32  packUpdate  (NetConnection *conn, U32 mask, BitStream *stream) override;
+      void unpackUpdate(NetConnection *conn,           BitStream *stream) override;
 
       // ProcessObject
-      void advanceTime( F32 timeDelta );
-      void processTick( const Move *move );
+      void advanceTime( F32 timeDelta ) override;
+      void processTick( const Move *move ) override;
 
       // Spawn info
       String   mSpawnClass;
@@ -166,6 +167,8 @@ class SpawnSphere : public MissionMarker
       bool     mAutoSpawn;
       bool     mSpawnTransform;
 
+      /// returns the datablock spawned for this object
+      StringTableEntry getTypeHint() const override { return (mSpawnDataBlock.isNotEmpty()) ? mSpawnDataBlock.c_str() : StringTable->EmptyString(); };
       // Radius/weight info
       F32      mRadius;
       F32      mSphereWeight;
@@ -199,15 +202,15 @@ class CameraBookmark : public MissionMarker
       CameraBookmark();
 
       // SimObject
-      virtual bool onAdd();
-      virtual void onRemove();
-      virtual void onGroupAdd();
-      virtual void onGroupRemove();
-      void inspectPostApply();
+      bool onAdd() override;
+      void onRemove() override;
+      void onGroupAdd() override;
+      void onGroupRemove() override;
+      void inspectPostApply() override;
 
       // NetObject
-      U32 packUpdate(NetConnection *conn, U32 mask, BitStream *stream);
-      void unpackUpdate(NetConnection *conn, BitStream *stream);
+      U32 packUpdate(NetConnection *conn, U32 mask, BitStream *stream) override;
+      void unpackUpdate(NetConnection *conn, BitStream *stream) override;
 
       // field data
       StringTableEntry              mName;
@@ -215,6 +218,7 @@ class CameraBookmark : public MissionMarker
       static void initPersistFields();
 
       DECLARE_CONOBJECT(CameraBookmark);
+      DECLARE_CATEGORY("Markers");
 	  /*DECLARE_CALLBACK( void, onAdd, () );
 	  DECLARE_CALLBACK( void, onRemove, () );
 	  DECLARE_CALLBACK( void, onGroupAdd, () );

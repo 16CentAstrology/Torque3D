@@ -40,16 +40,15 @@ public:
   /*C*/                 afxCameraShakeData();
   /*C*/                 afxCameraShakeData(const afxCameraShakeData&, bool = false);
 
-  virtual bool          onAdd();
-  virtual void          packData(BitStream*);
-  virtual void          unpackData(BitStream*);
+  bool          onAdd() override;
+  void          packData(BitStream*) override;
+  void          unpackData(BitStream*) override;
 
-  virtual bool          allowSubstitutions() const { return true; }
+  bool          allowSubstitutions() const override { return true; }
 
   static void           initPersistFields();
 
   DECLARE_CONOBJECT(afxCameraShakeData);
-  DECLARE_CATEGORY("AFX");
 };
 
 //~~~~~~~~~~~~~~~~~~~~//~~~~~~~~~~~~~~~~~~~~//~~~~~~~~~~~~~~~~~~~~//~~~~~~~~~~~~~~~~~~~~~//

@@ -46,6 +46,8 @@ class SFX3DObject : public SceneObjectLink, public SFXObject< 3 >
    public:
    
       typedef SceneObjectLink Parent;
+
+      SFX3DObject();
       
       ///
       SFX3DObject( SFX3DWorld* world, SceneObject* object );
@@ -93,7 +95,7 @@ class SFX3DWorld : public SceneTracker
       FreeListChunker< SFX3DObject > mChunker;
       
       // SceneTracker.
-      virtual bool _isTrackableObject( SceneObject* object ) const;
+      bool _isTrackableObject( SceneObject* object ) const override;
    
    public:
    
@@ -117,9 +119,9 @@ class SFX3DWorld : public SceneTracker
       void debugDump();
       
       // SceneTracker.
-      virtual void registerObject( SceneObject* object );
-      virtual void unregisterObject( SceneObject* object );
-      virtual void updateObject( SceneObjectLink* object );
+      void registerObject( SceneObject* object ) override;
+      void unregisterObject( SceneObject* object ) override;
+      void updateObject( SceneObjectLink* object ) override;
 };
 
 

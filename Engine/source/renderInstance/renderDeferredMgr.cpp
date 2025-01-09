@@ -321,7 +321,7 @@ void RenderDeferredMgr::render( SceneRenderState *state )
    const bool isRenderingToTarget = _onPreRender(state);
 
    // Clear z-buffer and g-buffer.
-   GFX->clear(GFXClearZBuffer | GFXClearStencil, LinearColorF::ZERO, 1.0f, 0);
+   GFX->clear(GFXClearZBuffer | GFXClearStencil, LinearColorF::ZERO, 0.0f, 0);
    GFX->clearColorAttachment(0, LinearColorF::ONE);//normdepth
    GFX->clearColorAttachment(1, LinearColorF::ZERO);//albedo
    GFX->clearColorAttachment(2, LinearColorF::ZERO);//matinfo
@@ -683,7 +683,8 @@ void ProcessedDeferredMaterial::_determineFeatures( U32 stageNum,
                   type == MFT_UseInstancing ||
                   type == MFT_DiffuseVertColor ||
                   type == MFT_DetailMap ||
-                  type == MFT_DiffuseMapAtlas)
+                  type == MFT_DiffuseMapAtlas||
+                  type == MFT_GlowMask)
          newFeatures.addFeature( type );
 
       // Add any transform features.

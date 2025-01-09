@@ -31,6 +31,7 @@
 #include "gui/containers/guiScrollCtrl.h"
 #include "core/strings/stringUnit.h"
 #include "console/engineAPI.h"
+#include "console/script.h"
 
 
 IMPLEMENT_CONOBJECT( GuiEditCtrl );
@@ -2833,7 +2834,7 @@ class GuiEditorRuler : public GuiControl
             return ORIENTATION_Vertical;
       }
       
-      bool onWake()
+      bool onWake() override
       {
          if( !Parent::onWake() )
             return false;
@@ -2847,12 +2848,12 @@ class GuiEditorRuler : public GuiControl
          return true;
       }
 
-      void onPreRender()
+      void onPreRender() override
       {
          setUpdate();
       }
       
-      void onMouseDown( const GuiEvent& event )
+      void onMouseDown( const GuiEvent& event ) override
       {         
          if( !mEditCtrl )
             return;
@@ -2871,9 +2872,9 @@ class GuiEditorRuler : public GuiControl
          mEditCtrl->startMouseGuideDrag( axis, guideIndex );
       }
       
-      void onRender(Point2I offset, const RectI &updateRect)
+      void onRender(Point2I offset, const RectI &updateRect) override
       {
-         GFX->getDrawUtil()->drawRectFill(updateRect, ColorI::WHITE);
+         GFX->getDrawUtil()->drawRectFill(updateRect, ColorI::DARK);
          
          Point2I choffset(0,0);
          if( mRefCtrl != NULL )
@@ -2893,7 +2894,7 @@ class GuiEditorRuler : public GuiControl
                      start = 4;
                   if(!(pos % 100))
                      start = 1;
-                  GFX->getDrawUtil()->drawLine(x, offset.y + start, x, offset.y + 10, ColorI::BLACK);
+                  GFX->getDrawUtil()->drawLine(x, offset.y + start, x, offset.y + 10, ColorI::LIGHT);
                }
             }
          }
@@ -2911,7 +2912,7 @@ class GuiEditorRuler : public GuiControl
                      start = 4;
                   if(!(pos % 100))
                      start = 1;
-                  GFX->getDrawUtil()->drawLine(offset.x + start, y, offset.x + 10, y, ColorI::BLACK);
+                  GFX->getDrawUtil()->drawLine(offset.x + start, y, offset.x + 10, y, ColorI::LIGHT);
                }
             }
          }

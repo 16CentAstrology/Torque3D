@@ -59,6 +59,8 @@ RenderProbeMgr *RenderProbeMgr::smProbeManager = NULL;
 // This variable is a global toggle on if reflection probes should be rendered or not
 bool RenderProbeMgr::smRenderReflectionProbes = true;
 
+bool RenderProbeMgr::smBakeReflectionProbes = false;
+
 // This variable defines the maximum draw distance of a probe.
 F32 RenderProbeMgr::smMaxProbeDrawDistance = 100;
 
@@ -347,7 +349,7 @@ void RenderProbeMgr::getBestProbes(const Point3F& objPosition, ProbeDataSet* pro
       probeDataSet->refScaleArray[i].w = curEntry.mProbeInfo->mCanDamp? 1.0 : 0.0;
 
       Point3F probePos = curEntry.mProbeInfo->mObject->getPosition();
-      Point3F refPos = probePos + curEntry.mProbeInfo->mProbeRefOffset * probeDataSet->refScaleArray[i].asPoint3F();
+      Point3F refPos = curEntry.mProbeInfo->mProbeRefOffset;
 
       probeDataSet->probePositionArray[i] = Point4F(probePos.x, probePos.y, probePos.z, 0);
       probeDataSet->probeRefPositionArray[i] = Point4F(refPos.x, refPos.y, refPos.z, 0);
@@ -500,27 +502,22 @@ void RenderProbeMgr::reloadTextures()
 
 void RenderProbeMgr::preBake()
 {
-   Con::setVariable("$Probes::Capturing", "1");
-   mRenderMaximumNumOfLights = AdvancedLightBinManager::smMaximumNumOfLights;
-   mRenderUseLightFade = AdvancedLightBinManager::smUseLightFade;
-
-   AdvancedLightBinManager::smMaximumNumOfLights = -1;
-   AdvancedLightBinManager::smUseLightFade = false;
+   RenderProbeMgr::smBakeReflectionProbes = true;
+   Con::setBoolVariable("$ReflectionProbes::Capturing", RenderProbeMgr::smBakeReflectionProbes);
 }
+
 void RenderProbeMgr::postBake()
 {
-   Con::setVariable("$Probes::Capturing", "0");
-   AdvancedLightBinManager::smMaximumNumOfLights = mRenderMaximumNumOfLights;
-   AdvancedLightBinManager::smUseLightFade = mRenderUseLightFade;
+   RenderProbeMgr::smBakeReflectionProbes = false;
+   Con::setBoolVariable("$ReflectionProbes::Capturing", RenderProbeMgr::smBakeReflectionProbes);
 }
+
 void RenderProbeMgr::bakeProbe(ReflectionProbe* probe)
 {
    GFXDEBUGEVENT_SCOPE(RenderProbeMgr_Bake, ColorI::WHITE);
 
    Con::warnf("RenderProbeMgr::bakeProbe() - Beginning bake!");
    U32 startMSTime = Platform::getRealMilliseconds();
-
-   preBake();
 
    String path = Con::getVariable("$pref::ReflectionProbes::CurrentLevelPath", "levels/");
    U32 resolution = Con::getIntVariable("$pref::ReflectionProbes::BakeResolution", 64);
@@ -569,13 +566,15 @@ void RenderProbeMgr::bakeProbe(ReflectionProbe* probe)
 
    ReflectParams reflParams;
 
+   MatrixF camTrans = clientProbe->getTransform();
+   camTrans.setPosition(clientProbe->getTransform().getPosition() + clientProbe->mProbeRefOffset);
    //need to get the query somehow. Likely do some sort of get function to fetch from the guiTSControl that's active
    CameraQuery query; //need to get the last cameraQuery
    query.fov = 90; //90 degree slices for each of the 6 sides
-   query.nearPlane = 0.1f;
+   query.nearPlane = 0.0001f;
    query.farPlane = farPlane;
    query.headMatrix = MatrixF();
-   query.cameraMatrix = clientProbe->getTransform();
+   query.cameraMatrix = camTrans;
 
    Frustum culler;
    culler.set(false,
@@ -621,9 +620,10 @@ void RenderProbeMgr::bakeProbe(ReflectionProbe* probe)
       clientProbe->mPrefilterMap->mCubemap->initDynamic(resolution, reflectFormat);
 
       GFXTextureTargetRef renderTarget = GFX->allocRenderToTextureTarget(false);
+      clientProbe->mPrefilterMap->mCubemap = cubeRefl.getCubemap();
 
       IBLUtilities::GenerateIrradianceMap(renderTarget, cubeRefl.getCubemap(), clientProbe->mIrridianceMap->mCubemap);
-      IBLUtilities::GeneratePrefilterMap(renderTarget, cubeRefl.getCubemap(), prefilterMipLevels, clientProbe->mPrefilterMap->mCubemap);
+      //IBLUtilities::GeneratePrefilterMap(renderTarget, cubeRefl.getCubemap(), prefilterMipLevels, clientProbe->mPrefilterMap->mCubemap);
 
       U32 endMSTime = Platform::getRealMilliseconds();
       F32 diffTime = F32(endMSTime - startMSTime);
@@ -641,7 +641,6 @@ void RenderProbeMgr::bakeProbe(ReflectionProbe* probe)
    if (!renderWithProbes)
       RenderProbeMgr::smRenderReflectionProbes = probeRenderState;
 
-   postBake();
 
    cubeRefl.unregisterReflector();
 
@@ -845,7 +844,7 @@ void RenderProbeMgr::render( SceneRenderState *state )
    _setupPerFrameParameters(state);
 
    // Early out if nothing to draw.
-   if ((!RenderProbeMgr::smRenderReflectionProbes && !dStrcmp(Con::getVariable("$Probes::Capturing", "0"), "1")) || (!mHasSkylight && mProbeData.effectiveProbeCount == 0))
+   if (!RenderProbeMgr::smRenderReflectionProbes || (!mHasSkylight && mProbeData.effectiveProbeCount == 0))
    {
       getProbeArrayEffect()->setSkip(true);
       mActiveProbes.clear();
@@ -875,9 +874,6 @@ void RenderProbeMgr::render( SceneRenderState *state )
    String probePerFrame = Con::getVariable("$pref::MaxProbesPerFrame", "8");
    mProbeArrayEffect->setShaderMacro("MAX_PROBES", probePerFrame);
 
-   String probeCapturing = Con::getVariable("$Probes::Capturing", "0");
-   mProbeArrayEffect->setShaderMacro("CAPTURING", probeCapturing);
-   
    mProbeArrayEffect->setTexture(3, mBRDFTexture);
    mProbeArrayEffect->setCubemapArrayTexture(4, mPrefilterArray);
    mProbeArrayEffect->setCubemapArrayTexture(5, mIrradianceArray);
@@ -953,11 +949,15 @@ void RenderProbeMgr::render( SceneRenderState *state )
 DefineEngineMethod(RenderProbeMgr, bakeProbe, void, (ReflectionProbe* probe), (nullAsType< ReflectionProbe*>()),
    "@brief Bakes the cubemaps for a reflection probe\n\n.")
 {
+   object->preBake();
    if(probe != nullptr)
       object->bakeProbe(probe);
+   object->postBake();
 }
 
 DefineEngineMethod(RenderProbeMgr, bakeProbes, void, (),, "@brief Iterates over all reflection probes in the scene and bakes their cubemaps\n\n.")
 {
+   object->preBake();
    object->bakeProbes();
+   object->postBake();
 }

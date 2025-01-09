@@ -648,17 +648,17 @@ void GuiConvexEditorCtrl::on3DMouseDragged(const Gui3DMouseEvent & event)
 	     F32 scalar = 1;
 		  mConvexSEL->mSurfaceUVs[mFaceSEL].scale += (Point2F(scale.x, scale.y) * scalar);
 
-        if (mConvexSEL->mSurfaceUVs[mFaceSEL].scale.x < 0.01)
-           mConvexSEL->mSurfaceUVs[mFaceSEL].scale.x = 0.01;
+        if (mConvexSEL->mSurfaceUVs[mFaceSEL].scale.x < 0.01f)
+           mConvexSEL->mSurfaceUVs[mFaceSEL].scale.x = 0.01f;
 
-        if (mConvexSEL->mSurfaceUVs[mFaceSEL].scale.y < 0.01)
-           mConvexSEL->mSurfaceUVs[mFaceSEL].scale.y = 0.01;
+        if (mConvexSEL->mSurfaceUVs[mFaceSEL].scale.y < 0.01f)
+           mConvexSEL->mSurfaceUVs[mFaceSEL].scale.y = 0.01f;
 
-        if (mConvexSEL->mSurfaceUVs[mFaceSEL].scale.x > 100)
-           mConvexSEL->mSurfaceUVs[mFaceSEL].scale.x = 100;
+        if (mConvexSEL->mSurfaceUVs[mFaceSEL].scale.x > 100.0f)
+           mConvexSEL->mSurfaceUVs[mFaceSEL].scale.x = 100.0f;
 
-        if (mConvexSEL->mSurfaceUVs[mFaceSEL].scale.y > 100)
-           mConvexSEL->mSurfaceUVs[mFaceSEL].scale.y = 100;
+        if (mConvexSEL->mSurfaceUVs[mFaceSEL].scale.y > 100.0f)
+           mConvexSEL->mSurfaceUVs[mFaceSEL].scale.y = 100.0f;
 
         Point2F test = mConvexSEL->mSurfaceUVs[mFaceSEL].scale;
 		  mConvexSEL->setMaskBits( ConvexShape::UpdateMask );
@@ -1768,10 +1768,10 @@ void GuiConvexEditorCtrl::submitUndo( UndoType type, const Vector<ConvexShape*> 
 	mIsDirty = true;
 }
 
-bool GuiConvexEditorCtrl::_cursorCastCallback( RayInfo* ri )
+bool GuiConvexEditorCtrl::_cursorCastCallback( SceneObject* object )
 {
    // Reject anything that's not a ConvexShape.
-   return dynamic_cast< ConvexShape* >( ri->object );
+   return dynamic_cast< ConvexShape* >( object );
 }
 
 bool GuiConvexEditorCtrl::_cursorCast( const Gui3DMouseEvent &event, ConvexShape **hitShape, S32 *hitFace )
@@ -3043,14 +3043,21 @@ DefineEngineMethod(GuiConvexEditorCtrl, getSelectedFaceZRot, float, (), ,
 }
 
 DefineEngineMethod(GuiConvexEditorCtrl, toggleGridSnapping, void, (),,
-   "@brief Mount objB to this object at the desired slot with optional transform.\n\n"
-
-   "@param objB  Object to mount onto us\n"
-   "@param slot  Mount slot ID\n"
-   "@param txfm (optional) mount offset transform\n"
-   "@return true if successful, false if failed (objB is not valid)")
+   "@brief toggle grid snapping state.\n\n")
 {
    object->toggleGridSnapping();
+}
+
+DefineEngineMethod(GuiConvexEditorCtrl, setGridSnap, void, (bool snap), ,
+   "@brief set grid snapping state.\n\n")
+{
+   object->setGridSnap(snap);
+}
+
+DefineEngineMethod(GuiConvexEditorCtrl, getGridSnap, bool, (), ,
+   "@brief set grid snapping state.\n\n")
+{
+   return object->getGridSnap();
 }
 
 DefineEngineMethod(GuiConvexEditorCtrl, setGridSnapSize, void, (float gridSize), (1.0),

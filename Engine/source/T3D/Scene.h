@@ -1,5 +1,5 @@
 #pragma once
-
+#ifndef SCENE_H
 #include "console/engineAPI.h"
 
 #ifndef _NETOBJECT_H_
@@ -9,8 +9,16 @@
 #ifndef _ITICKABLE_H_
 #include "core/iTickable.h"
 #endif
-
+#ifndef _SCENEOBJECT_H_
 #include "scene/sceneObject.h"
+#endif
+
+#ifndef GAME_MODE_H
+#include "gameMode.h"
+#endif
+#ifndef SUB_SCENE_H
+#include "SubScene.h"
+#endif
 
 /// Scene
 /// This object is effectively a smart container to hold and manage any relevent scene objects and data
@@ -19,15 +27,12 @@ class Scene : public NetObject, public virtual ITickable
 {
    typedef NetObject Parent;
 
-   bool mIsSubScene;
-
    Scene* mParentScene;
 
-   Vector<Scene*> mSubScenes;
+   Vector<SubScene*> mSubScenes;
 
-   Vector<SceneObject*> mPermanentObjects;
-
-   Vector<SceneObject*> mDynamicObjects;
+   Vector<SimObject*> mPermanentObjects;
+   Vector<SimObject*> mDynamicObjects;
 
    S32 mSceneId;
 
@@ -37,7 +42,8 @@ class Scene : public NetObject, public virtual ITickable
 
    bool mEditPostFX;
 
-   StringTableEntry mGameModeName;
+   StringTableEntry mGameModesNames;
+   Vector<GameMode*> mGameModesList;
 
 protected:
    static Scene * smRootScene;
@@ -52,19 +58,20 @@ public:
 
    static bool _editPostEffects(void* object, const char* index, const char* data);
 
-   virtual bool onAdd();
-   virtual void onRemove();
-   virtual void onPostAdd();
+   bool onAdd() override;
+   void onRemove() override;
+   void onPostAdd() override;
 
-   virtual void interpolateTick(F32 delta);
-   virtual void processTick();
-   virtual void advanceTime(F32 timeDelta);
+   void interpolateTick(F32 delta) override;
+   void processTick() override;
+   void advanceTime(F32 timeDelta) override;
 
-   virtual void addObject(SimObject* object);
-   virtual void removeObject(SimObject* object);
+   void addObject(SimObject* object) override;
+   void removeObject(SimObject* object) override;
 
-   void addDynamicObject(SceneObject* object);
-   void removeDynamicObject(SceneObject* object);
+   void addDynamicObject(SimObject* object);
+   void removeDynamicObject(SimObject* object);
+   void clearDynamicObjects() { mDynamicObjects.clear(); }
 
    void dumpUtilizedAssets();
 
@@ -75,16 +82,18 @@ public:
 
    //
    //Networking
-   U32 packUpdate(NetConnection *conn, U32 mask, BitStream *stream);
-   void unpackUpdate(NetConnection *conn, BitStream *stream);
+   U32 packUpdate(NetConnection *conn, U32 mask, BitStream *stream) override;
+   void unpackUpdate(NetConnection *conn, BitStream *stream) override;
 
    //
-   Vector<SceneObject*> getObjectsByClass(String className, bool checkSubscenes);
+   Vector<SceneObject*> getObjectsByClass(String className);
 
    void getUtilizedAssetsFromSceneObject(SimObject* object, Vector<StringTableEntry>* usedAssetsList);
 
    template <class T>
-   Vector<T*> getObjectsByClass(bool checkSubscenes);
+   Vector<T*> getObjectsByClass();
+
+   void loadAtPosition(const Point3F& position);
 
    static Scene *getRootScene() 
    { 
@@ -95,11 +104,13 @@ public:
    }
 
    static Vector<Scene*> smSceneList;
+
+   DECLARE_CALLBACK(void, onSaving, (const char* fileName));
 };
 
 
 template <class T>
-Vector<T*> Scene::getObjectsByClass(bool checkSubscenes)
+Vector<T*> Scene::getObjectsByClass()
 {
    Vector<T*> foundObjects;
 
@@ -120,18 +131,6 @@ Vector<T*> Scene::getObjectsByClass(bool checkSubscenes)
          foundObjects.push_back(curObject);
    }
 
-   if (checkSubscenes)
-   {
-      for (U32 i = 0; i < mSubScenes.size(); i++)
-      {
-         Vector<T*> appendList = mSubScenes[i]->getObjectsByClass<T>(true);
-
-         for (U32 a = 0; a < appendList.size(); a++)
-         {
-            foundObjects.push_back(appendList[a]);
-         }
-      }
-   }
-
    return foundObjects;
 }
+#endif

@@ -68,11 +68,12 @@ ConsoleDocClass( GuiIconButtonCtrl,
     " makeIconSquare = \"1\";\n"
     " textLocation = \"Bottom\";\n"
     " textMargin = \"-2\";\n"
-   "  autoSize = \"0\";\n"
-   "  text = \"Lag Icon\";\n"
-   "  textID = \"\"STR_LAG\"\";\n"
-   "  buttonType = \"PushButton\";\n"
-   "  profile = \"GuiIconButtonProfile\";\n"
+    " bitmapMargin = \"0\";\n"
+    " autoSize = \"0\";\n"
+    " text = \"Lag Icon\";\n"
+    " textID = \"\"STR_LAG\"\";\n"
+    " buttonType = \"PushButton\";\n"
+    " profile = \"GuiIconButtonProfile\";\n"
    "};\n"
    "@endtsexample\n\n"
 
@@ -95,6 +96,8 @@ GuiIconButtonCtrl::GuiIconButtonCtrl()
    mMakeIconSquare = false;
 
    mAutoSize = false;
+
+   mBitmapMargin = 0;
 
    setExtent(140, 30);
 }
@@ -134,6 +137,8 @@ void GuiIconButtonCtrl::initPersistFields()
                                                                                  "Options are 0 (None), 1 (Bottom), 2 (Right), 3 (Top), 4 (Left), 5 (Center).\n");
    addField( "textMargin",       TypeS32,       Offset( mTextMargin, GuiIconButtonCtrl ),"Margin between the icon and the text.\n");
    addField( "autoSize",         TypeBool,      Offset( mAutoSize, GuiIconButtonCtrl ),"If true, the text and icon will be automatically sized to the size of the control.\n");
+   addField( "bitmapMargin",     TypeS32,       Offset( mBitmapMargin, GuiIconButtonCtrl), "Margin between the icon and the border.\n");
+
    Parent::initPersistFields();
 }
 
@@ -248,7 +253,7 @@ void GuiIconButtonCtrl::renderButton( Point2I &offset, const RectI& updateRect )
          if (mProfile->mBorder != 0)
             renderFilledBorder(boundsRect, borderColor, fillColor, mProfile->mBorderThickness);
          else
-            GFX->getDrawUtil()->drawRectFill(boundsRect, mProfile->mFillColor);
+            GFX->getDrawUtil()->drawRectFill(boundsRect, fillColor);
       }
    }
    else if(mHighlighted && mActive)
@@ -264,7 +269,7 @@ void GuiIconButtonCtrl::renderButton( Point2I &offset, const RectI& updateRect )
          if (mProfile->mBorder != 0)
             renderFilledBorder(boundsRect, borderColor, fillColor, mProfile->mBorderThickness);
          else
-            GFX->getDrawUtil()->drawRectFill(boundsRect, mProfile->mFillColor);
+            GFX->getDrawUtil()->drawRectFill(boundsRect, fillColor);
       }
    }
    else
@@ -299,10 +304,16 @@ void GuiIconButtonCtrl::renderButton( Point2I &offset, const RectI& updateRect )
       // Render the normal bitmap
       drawer->clearBitmapModulation();
 
+      // Size of the bitmap
+      Point2I textureSize(mBitmap->getWidth(), mBitmap->getHeight());
+
+      // Reduce the size with the margin (if set)
+      textureSize.x = textureSize.x - (mBitmapMargin * 2);
+      textureSize.y = textureSize.y - (mBitmapMargin * 2);
+
       // Maintain the bitmap size or fill the button?
       if ( !mFitBitmapToButton )
       {
-         Point2I textureSize(mBitmap->getWidth(), mBitmap->getHeight() );
          iconRect.set( offset + mButtonMargin, textureSize );
 
          if ( mIconLocation == IconLocRight )    
@@ -326,7 +337,11 @@ void GuiIconButtonCtrl::renderButton( Point2I &offset, const RectI& updateRect )
       } 
       else
       {
-         iconRect.set( offset + mButtonMargin, getExtent() - (Point2I(mAbs(mButtonMargin.x), mAbs(mButtonMargin.y)) * 2) );
+         // adding offset with the bitmap margin next to the button margin
+         Point2I bitMapOffset(mBitmapMargin, mBitmapMargin);
+
+         // set the offset
+         iconRect.set( offset + mButtonMargin + bitMapOffset, getExtent() - (Point2I(mAbs(mButtonMargin.x - (mBitmapMargin * 2)), mAbs(mButtonMargin.y - (mBitmapMargin * 2))) * 2) );
          
          if ( mMakeIconSquare )
          {
@@ -373,6 +388,7 @@ void GuiIconButtonCtrl::renderButton( Point2I &offset, const RectI& updateRect )
             start.x = iconRect.extent.x + mButtonMargin.x + mTextMargin;
          }
 
+         drawer->setBitmapModulation(fontColor);
          drawer->drawText( mProfile->mFont, start + offset, text, mProfile->mFontColors );
       }
 
@@ -380,6 +396,7 @@ void GuiIconButtonCtrl::renderButton( Point2I &offset, const RectI& updateRect )
       {
          Point2I start( mTextMargin, ( getHeight() - mProfile->mFont->getHeight() ) / 2 );
 
+         drawer->setBitmapModulation(fontColor);
          drawer->drawText( mProfile->mFont, start + offset, text, mProfile->mFontColors );
       }
 
@@ -393,6 +410,7 @@ void GuiIconButtonCtrl::renderButton( Point2I &offset, const RectI& updateRect )
          }
          else
             start.set( ( getWidth() - textWidth ) / 2, ( getHeight() - mProfile->mFont->getHeight() ) / 2 );
+
          drawer->setBitmapModulation( fontColor );
          drawer->drawText( mProfile->mFont, start + offset, text, mProfile->mFontColors );
       }

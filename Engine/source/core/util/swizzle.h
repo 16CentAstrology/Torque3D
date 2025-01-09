@@ -81,9 +81,9 @@ class NullSwizzle : public Swizzle<T, mapLength>
 public:
    NullSwizzle( const dsize_t *map = NULL ) : Swizzle<T, mapLength>( map ) {};
 
-   virtual void InPlace( void *memory, const dsize_t size ) const {}
+   void InPlace( void *memory, const dsize_t size ) const override {}
 
-   virtual void ToBuffer( void *destination, const void *source, const dsize_t size ) const
+   void ToBuffer( void *destination, const void *source, const dsize_t size ) const override
    {
       dMemcpy( destination, source, size );
    }
@@ -144,8 +144,8 @@ inline void Swizzle<T, mapLength>::InPlace( void *memory, const dsize_t size ) c
       // FrameTemp should work because the PNG loading code uses the FrameAllocator, so
       // it should only get used on an image w/ that size as max -patw
       FrameTemp<U8> buffer( size );
-      dMemcpy( ~buffer, memory, size );
-      ToBuffer( memory, ~buffer, size );
+      dMemcpy( buffer.address(), memory, size);
+      ToBuffer( memory, buffer.address(), size);
    }
 }
 

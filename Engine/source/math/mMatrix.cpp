@@ -29,6 +29,8 @@
 #include "console/enginePrimitives.h"
 #include "console/engineTypes.h"
 
+#ifndef USE_TEMPLATE_MATRIX
+
 const MatrixF MatrixF::Identity( true );
 
 // idx(i,j) is index to element in column i, row j
@@ -160,6 +162,14 @@ bool MatrixF::fullInverse()
    return true;
 }
 
+void MatrixF::reverseProjection()
+{
+   m[idx(0, 2)] = m[idx(0, 3)] - m[idx(0, 2)];
+   m[idx(1, 2)] = m[idx(1, 3)] - m[idx(1, 2)];
+   m[idx(2, 2)] = m[idx(2, 3)] - m[idx(2, 2)];
+   m[idx(3, 2)] = m[idx(3, 3)] - m[idx(3, 2)];
+}
+
 EulerF MatrixF::toEuler() const
 {
    const F32 * mat = m;
@@ -183,7 +193,7 @@ EulerF MatrixF::toEuler() const
 
 void MatrixF::dumpMatrix(const char *caption /* =NULL */) const
 {
-   U32 size = dStrlen(caption);
+   U32 size = (caption == NULL)? 0 : dStrlen(caption);
    FrameTemp<char> spacer(size+1);
    char *spacerRef = spacer;
 
@@ -201,3 +211,12 @@ EngineFieldTable::Field MatrixFEngineExport::getMatrixField()
    typedef MatrixF ThisType;
    return _FIELD_AS(F32, m, m, 16, "");
 }
+
+#else // !USE_TEMPLATE_MATRIX
+
+//------------------------------------
+// Templatized matrix class to replace MATRIXF above
+// due to templated class, all functions need to be inline
+//------------------------------------
+
+#endif // !USE_TEMPLATE_MATRIX

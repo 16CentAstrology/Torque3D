@@ -157,7 +157,8 @@ bool GroundPlane::onAdd()
 
 void GroundPlane::onRemove()
 {
-   if (!mMaterialAsset.isNull())
+   U32 assetStatus = MaterialAsset::getAssetErrCode(mMaterialAsset);
+   if (assetStatus == AssetBase::Ok)
       AssetDatabase.releaseAsset(mMaterialAsset.getAssetId());
 
    //SAFE_DELETE(mMaterialInst);
@@ -271,37 +272,35 @@ void GroundPlane::buildConvex( const Box3F& box, Convex* convex )
       return;
 
    // See if we already have a convex in the working set.
-   BoxConvex *boxConvex = NULL;
+   PlaneConvex *planeConvex = NULL;
    CollisionWorkingList &wl = convex->getWorkingList();
    CollisionWorkingList *itr = wl.wLink.mNext;
    for ( ; itr != &wl; itr = itr->wLink.mNext )
    {
-      if (  itr->mConvex->getType() == BoxConvexType &&
+      if (  itr->mConvex->getType() == PlaneConvexType &&
             itr->mConvex->getObject() == this )
       {
-         boxConvex = (BoxConvex*)itr->mConvex;
+         planeConvex = (PlaneConvex*)itr->mConvex;
          break;
       }
    }
 
-   if ( !boxConvex )
+   if ( !planeConvex)
    {
-      boxConvex = new BoxConvex;
-      mConvexList->registerObject( boxConvex );
-      boxConvex->init( this );
+      planeConvex = new PlaneConvex;
+      mConvexList->registerObject(planeConvex);
+      planeConvex->init( this );
 
-      convex->addToWorkingList( boxConvex );
+      convex->addToWorkingList(planeConvex);
    }
 
    // Update our convex to best match the queried box
-   if ( boxConvex )
+   if (planeConvex)
    {
       Point3F queryCenter = box.getCenter();
 
-      boxConvex->mCenter      = Point3F( queryCenter.x, queryCenter.y, -GROUND_PLANE_BOX_HEIGHT_HALF );
-      boxConvex->mSize        = Point3F( box.getExtents().x,
-                                         box.getExtents().y,
-                                         GROUND_PLANE_BOX_HEIGHT_HALF );
+      planeConvex->mCenter = Point3F( queryCenter.x, queryCenter.y, 0 );
+      planeConvex->mSize   = Point3F( box.getExtents().x, box.getExtents().y, 0 );
    }
 }
 
@@ -442,7 +441,7 @@ void GroundPlane::createGeometry( const Frustum& frustum )
    U32 width = mCeil( ( max.x - min.x ) / mSquareSize );
    if( width > MAX_WIDTH )
    {
-      mSquareSize = mCeil( ( max.x - min.x ) / MAX_WIDTH );
+      mSquareSize = mCeil( ( max.x - min.x ) / (F32)MAX_WIDTH );
       width = MAX_WIDTH;
    }
    else if( !width )
@@ -451,7 +450,7 @@ void GroundPlane::createGeometry( const Frustum& frustum )
    U32 height = mCeil( ( max.y - min.y ) / mSquareSize );
    if( height > MAX_HEIGHT )
    {
-      mSquareSize = mCeil( ( max.y - min.y ) / MAX_HEIGHT );
+      mSquareSize = mCeil( ( max.y - min.y ) / (F32)MAX_HEIGHT );
       height = MAX_HEIGHT;
    }
    else if( !height )
@@ -593,8 +592,11 @@ void GroundPlane::generateGrid( U32 width, U32 height, F32 squareSize,
 
 void GroundPlane::getUtilizedAssets(Vector<StringTableEntry>* usedAssetsList)
 {
-   if (!mMaterialAsset.isNull() && mMaterialAsset->getAssetId() != MaterialAsset::smNoMaterialAssetFallback)
+   U32 assetStatus = MaterialAsset::getAssetErrCode(mMaterialAsset);
+   if (assetStatus == AssetBase::Ok)
+   {
       usedAssetsList->push_back_unique(mMaterialAsset->getAssetId());
+   }
 
 }
 

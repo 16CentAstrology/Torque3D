@@ -384,14 +384,14 @@ class FileSystemRedirect: public FileSystem
 public:
    FileSystemRedirect(MountSystem* mfs,const Path& path);
 
-   String   getTypeStr() const { return "Redirect"; }
+   String   getTypeStr() const override { return "Redirect"; }
 
-   FileNodeRef resolve(const Path& path);
-   FileNodeRef create(const Path& path,FileNode::Mode);
-   bool remove(const Path& path);
-   bool rename(const Path& a,const Path& b);
-   Path mapTo(const Path& path);
-   Path mapFrom(const Path& path);
+   FileNodeRef resolve(const Path& path) override;
+   FileNodeRef create(const Path& path,FileNode::Mode) override;
+   bool remove(const Path& path) override;
+   bool rename(const Path& a,const Path& b) override;
+   Path mapTo(const Path& path) override;
+   Path mapFrom(const Path& path) override;
    
 private:
    Path _merge(const Path& path);
@@ -406,14 +406,14 @@ public:
 
    FileSystemRedirectChangeNotifier( FileSystem *fs );
 
-   bool addNotification( const Path &path, ChangeDelegate callback );   
-   bool removeNotification( const Path &path, ChangeDelegate callback );
+   bool addNotification( const Path &path, ChangeDelegate callback ) override;   
+   bool removeNotification( const Path &path, ChangeDelegate callback ) override;
 
 protected:
 
-   virtual void  internalProcessOnce() {}
-   virtual bool  internalAddNotification( const Path &dir ) { return false; }
-   virtual bool  internalRemoveNotification( const Path &dir ) { return false; }
+   void  internalProcessOnce() override {}
+   bool  internalAddNotification( const Path &dir ) override { return false; }
+   bool  internalRemoveNotification( const Path &dir ) override { return false; }
 };
 
 FileSystemRedirectChangeNotifier::FileSystemRedirectChangeNotifier( FileSystem *fs ) 
@@ -618,13 +618,13 @@ bool MountSystem::_dumpDirectories(DirectoryRef directory, Vector<StringTableEnt
          // So if we queried for data/ and are currently processing data/ExampleModule/datablocks we want to output
          // ExampleModule/datablocks
          Path newDirectoryPath;
-         for (U32 iteration = basePathDirectoryCount; iteration < directoryPath.getDirectoryCount(); ++iteration)
+         for (U32 subIteration = basePathDirectoryCount; subIteration < directoryPath.getDirectoryCount(); ++subIteration)
          {
-            if (iteration > basePathDirectoryCount)
+            if (subIteration > basePathDirectoryCount)
             {
                newDirectoryPath.setPath(newDirectoryPath.getPath() + "/");
             }
-            newDirectoryPath.setPath(newDirectoryPath.getPath() + directoryPath.getDirectory(iteration));
+            newDirectoryPath.setPath(newDirectoryPath.getPath() + directoryPath.getDirectory(subIteration));
          }
 
          newDirectoryPath.setFileName(directoryPath.getFileName());
@@ -1232,18 +1232,6 @@ S32 FindByPattern( const Path &inBasePath, const String &inFilePattern, bool inR
 bool IsFile(const Path &path)
 {
    return sgMountSystem.isFile(path);
-}
-
-bool IsScriptFile(const char* pFilePath)
-{
-   return (sgMountSystem.isFile(pFilePath)
-      || sgMountSystem.isFile(pFilePath + String(".dso"))
-      || sgMountSystem.isFile(pFilePath + String(".mis"))
-      || sgMountSystem.isFile(pFilePath + String(".mis.dso"))
-      || sgMountSystem.isFile(pFilePath + String(".gui"))
-      || sgMountSystem.isFile(pFilePath + String(".gui.dso"))
-      || sgMountSystem.isFile(pFilePath + String("." TORQUE_SCRIPT_EXTENSION))
-      || sgMountSystem.isFile(pFilePath + String("." TORQUE_SCRIPT_EXTENSION) + String(".dso")));
 }
 
 bool IsDirectory(const Path &path)

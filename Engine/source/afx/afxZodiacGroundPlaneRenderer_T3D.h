@@ -71,19 +71,18 @@ public:
    /*D*/          ~afxZodiacGroundPlaneRenderer();
 
    // RenderBinManager
-   virtual void   sort(){}  // don't sort them
-   virtual void   clear();
+   void   sort() override{}  // don't sort them
+   void   clear() override;
 
    void           initShader();
    void           addZodiac(U32 zode_idx, const Point3F& pos, F32 ang, const GroundPlane*, F32 camDist);
 
-   virtual void   render(SceneRenderState* state);
+   void   render(SceneRenderState* state) override;
 
    static afxZodiacGroundPlaneRenderer* getMaster();
 
    // ConsoleObject
    DECLARE_CONOBJECT(afxZodiacGroundPlaneRenderer);
-   DECLARE_CATEGORY("AFX");
 };
 
 //~~~~~~~~~~~~~~~~~~~~//~~~~~~~~~~~~~~~~~~~~//~~~~~~~~~~~~~~~~~~~~//~~~~~~~~~~~~~~~~~~~~~//

@@ -57,10 +57,10 @@ public:
 public:
   /*C*/                 afxSpellBookData();
 
-  virtual void          packData(BitStream*);
-  virtual void          unpackData(BitStream*);
+  void          packData(BitStream*) override;
+  void          unpackData(BitStream*) override;
 
-  bool                  preload(bool server, String &errorStr);
+  bool                  preload(bool server, String &errorStr) override;
 
   bool                  verifyPageSlot(S32 page, S32 slot);
   S32                   getPageSlotIndex(S32 page, S32 slot);
@@ -68,7 +68,6 @@ public:
   static void           initPersistFields();
 
   DECLARE_CONOBJECT(afxSpellBookData);
-  DECLARE_CATEGORY("AFX");
 };
 
 inline bool afxSpellBookData::verifyPageSlot(S32 page, S32 slot)
@@ -105,15 +104,15 @@ public:
   /*C*/                   afxSpellBook();
   /*D*/                   ~afxSpellBook();
 
-  virtual bool            onNewDataBlock(GameBaseData* dptr, bool reload);
-  virtual void            processTick(const Move*);
-  virtual void            advanceTime(F32 dt);
+  bool            onNewDataBlock(GameBaseData* dptr, bool reload) override;
+  void            processTick(const Move*) override;
+  void            advanceTime(F32 dt) override;
 
-  virtual bool            onAdd();
-  virtual void            onRemove();
+  bool            onAdd() override;
+  void            onRemove() override;
 
-  virtual U32             packUpdate(NetConnection*, U32, BitStream*);
-  virtual void            unpackUpdate(NetConnection*, BitStream*);
+  U32             packUpdate(NetConnection*, U32, BitStream*) override;
+  void            unpackUpdate(NetConnection*, BitStream*) override;
 
   static void             initPersistFields();
 
@@ -128,7 +127,7 @@ public:
   F32                     getCooldownFactor(S32 page, S32 slot);
 
   DECLARE_CONOBJECT(afxSpellBook);
-  DECLARE_CATEGORY("AFX");
+  DECLARE_CATEGORY("UNLISTED");
 };
 
 inline S32 afxSpellBook::getPageSlotIndex(S32 page, S32 slot)

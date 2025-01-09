@@ -224,12 +224,12 @@ void TerrainBlock::_updateMaterials()
 
    if (!mDetailTextureArray->fromTextureArray(detailTexArray, detailTexArraySize))
    {
-      Con::errorf("TerrainBlock::_updateMaterials - an issue with the diffuse terrain materials was detected. Please ensure they are all of the same size and format!");
+      Con::errorf("TerrainBlock::_updateMaterials - an issue with the detail terrain materials was detected. Please ensure they are all of the same size and format!");
    }
 
    if (!mMacroTextureArray->fromTextureArray(macroTexArray, macroTexArraySize))
    {
-      Con::errorf("TerrainBlock::_updateMaterials - an issue with the detail terrain materials was detected. Please ensure they are all of the same size and format!");
+      Con::errorf("TerrainBlock::_updateMaterials - an issue with the macro terrain materials was detected. Please ensure they are all of the same size and format!");
    }
 
    if (!mNormalTextureArray->fromTextureArray(normalTexArray, normalTexArraySize))
@@ -477,16 +477,9 @@ void TerrainBlock::_updateBaseTexture(bool writeToCache)
    }
    else
    {
-      FileStream stream;
-      if (!stream.open(_getBaseTexCacheFileName(), Torque::FS::File::Write))
-      {
-         mBaseTex = blendTex;
-         return;
-      }
-
       GBitmap bitmap(blendTex->getWidth(), blendTex->getHeight(), false, GFXFormatR8G8B8A8);
       blendTex->copyToBmp(&bitmap);
-      bitmap.writeBitmap(formatToExtension(mBaseTexFormat), stream);
+      bitmap.writeBitmap(formatToExtension(mBaseTexFormat), _getBaseTexCacheFileName());
    }
 }
 
