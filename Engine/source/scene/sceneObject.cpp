@@ -126,18 +126,12 @@ SceneObject::SceneObject()
 
    mContainerSeqKey = 0;
 
-   mBinRefHead = NULL;
-
    mSceneManager = NULL;
 
+   mZoneListHandle = 0;
    mNumCurrZones = 0;
-   mZoneRefHead = NULL;
    mZoneRefDirty = false;
 
-   mBinMinX = 0xFFFFFFFF;
-   mBinMaxX = 0xFFFFFFFF;
-   mBinMinY = 0xFFFFFFFF;
-   mBinMaxY = 0xFFFFFFFF;
    mLightPlugin = NULL;
 
    mMount.object = NULL;
@@ -166,19 +160,23 @@ SceneObject::SceneObject()
    mGameObjectAssetId = StringTable->insert("");
 
    mDirtyGameObject = false;
+
+   mContainer = NULL;
+   mContainerIndex = 0;
 }
 
 //-----------------------------------------------------------------------------
 
 SceneObject::~SceneObject()
 {
-   AssertFatal( mZoneRefHead == NULL && mBinRefHead == NULL,
+   AssertFatal(mContainer == NULL,
+      "SceneObject::~SceneObject - Object still in container!");
+   AssertFatal( mZoneListHandle == NULL,
       "SceneObject::~SceneObject - Object still linked in reference lists!");
    AssertFatal( !mSceneObjectLinks,
       "SceneObject::~SceneObject() - object is still linked to SceneTrackers" );
 
    mAccuTex = NULL;
-   unlink();
 }
 
 //-----------------------------------------------------------------------------
@@ -523,8 +521,14 @@ void SceneObject::resetWorldBox()
    AssertFatal(mObjBox.isValidBox(), "SceneObject::resetWorldBox - Bad object box!");
 
    mWorldBox = mObjBox;
-   mWorldBox.minExtents.convolve(mObjScale);
-   mWorldBox.maxExtents.convolve(mObjScale);
+
+   Point3F scale = Point3F(mFabs(mObjScale.x), mFabs(mObjScale.y), mFabs(mObjScale.z));
+   mWorldBox.minExtents.convolve(scale);
+   mWorldBox.maxExtents.convolve(scale);
+
+   if (mObjToWorld.isNaN())
+      mObjToWorld.identity();
+
    mObjToWorld.mul(mWorldBox);
 
    AssertFatal(mWorldBox.isValidBox(), "SceneObject::resetWorldBox - Bad world box!");
@@ -587,11 +591,16 @@ void SceneObject::resetRenderWorldBox()
    AssertFatal( mObjBox.isValidBox(), "Bad object box!" );
 
    mRenderWorldBox = mObjBox;
-   mRenderWorldBox.minExtents.convolve( mObjScale );
-   mRenderWorldBox.maxExtents.convolve( mObjScale );
+   Point3F scale = Point3F(mFabs(mObjScale.x), mFabs(mObjScale.y), mFabs(mObjScale.z));
+   mRenderWorldBox.minExtents.convolve(scale);
+   mRenderWorldBox.maxExtents.convolve(scale);
+
+   if (mRenderObjToWorld.isNaN())
+      mRenderObjToWorld.identity();
+
    mRenderObjToWorld.mul( mRenderWorldBox );
 
-   AssertFatal( mRenderWorldBox.isValidBox(), "Bad world box!" );
+   AssertFatal( mRenderWorldBox.isValidBox(), "Bad Render world box!" );
 
    // Create mRenderWorldSphere from mRenderWorldBox.
 
@@ -1029,7 +1038,7 @@ void SceneObject::unpackUpdate( NetConnection* conn, BitStream* stream )
 
 //-----------------------------------------------------------------------------
 
-void SceneObject::_updateZoningState() const
+void SceneObject::_updateZoningState()
 {
    if( mZoneRefDirty )
    {
@@ -1043,21 +1052,18 @@ void SceneObject::_updateZoningState() const
 
 //-----------------------------------------------------------------------------
 
-U32 SceneObject::getCurrZone( const U32 index ) const
+U32 SceneObject::getCurrZone( const U32 index )
 {
+   SceneZoneSpaceManager* manager = getSceneManager()->getZoneManager();
    _updateZoningState();
 
    // Not the most efficient way to do this, walking the list,
    //  but it's an uncommon call...
-   ZoneRef* walk = mZoneRefHead;
-   for( U32 i = 0; i < index; ++ i )
-   {
-      walk = walk->nextInObj;
-      AssertFatal( walk != NULL, "SceneObject::_getCurrZone - Too few object refs!" );
-   }
-   AssertFatal( walk != NULL, "SceneObject::_getCurrZone - Too few object refs!" );
+   U32 numZones = 0;
+   U32* zones = NULL;
+   zones = manager->getZoneIDS(this, numZones);
 
-   return walk->zone;
+   return index < numZones ? zones[index] : 0;
 }
 
 //-----------------------------------------------------------------------------
@@ -1230,10 +1236,10 @@ bool SceneObject::_setMountPID( void* object, const char* index, const char* dat
 
 void SceneObject::resolveMountPID()
 {
-   if ( mMountPID && !mMount.object )
+   if ( mMountPID  )
    {
       SceneObject *obj = dynamic_cast< SceneObject* >( mMountPID->getObject() );
-      if ( obj )
+      if ( obj != mMount.object)
          obj->mountObject( this, mMount.node, mMount.xfm );
    }
 }
@@ -1531,6 +1537,19 @@ DefineEngineMethod( SceneObject, getEulerRotation, Point3F, (),,
    return euler;
 }
 
+DefineEngineMethod(SceneObject, setEulerRotation, void, (Point3F inRot), ,
+   "set Euler rotation of this object.\n"
+   "@set the orientation of the object in the form of rotations around the "
+   "X, Y and Z axes in degrees.\n")
+{
+   MatrixF curMat = object->getTransform();
+   Point3F curPos = curMat.getPosition();
+   Point3F curScale = curMat.getScale();
+   EulerF inRotRad = inRot * M_PI_F / 180.0;
+   curMat.set(inRotRad, curPos);
+   curMat.scale(curScale);
+   object->setTransform(curMat);
+}
 //-----------------------------------------------------------------------------
 
 DefineEngineMethod( SceneObject, getForwardVector, VectorF, (),,
@@ -1705,16 +1724,12 @@ void SceneObject::updateRenderChangesByParent(){
 		MatrixF offset;
 		offset.mul(renderXform, xform);
 
-   	    MatrixF mat;
+      MatrixF mat;
 		
 		//add the "offset" caused by the parents change, and add it to it's own
 		// This is needed by objects that update their own render transform thru interpolate tick
 		// Mostly for stationary objects.
-
-          if (getClassName() == StringTable->insert("Player"))
-			mat.mul(offset,getRenderTransform());  
-		else										
-			mat.mul(offset,getTransform());	 
+      mat.mul(offset,getRenderTransform());
 			setRenderTransform(mat);
 	}
 }
@@ -1998,3 +2013,8 @@ void SceneObject::onNewParent(SceneObject *newParent) { if (isServerObject()) on
 void SceneObject::onLostParent(SceneObject *oldParent) { if (isServerObject()) onLostParent_callback(oldParent); }
 void SceneObject::onNewChild(SceneObject *newKid) { if (isServerObject()) onNewChild_callback(newKid); }
 void SceneObject::onLostChild(SceneObject *lostKid) { if (isServerObject()) onLostChild_callback(lostKid); }
+
+IMPLEMENT_CALLBACK(SceneObject, onSaving, void, (const char* fileName), (fileName),
+   "@brief Called when a saving is occuring to allow objects to special-handle prepwork for saving if required.\n\n"
+
+   "@param fileName The level file being saved\n");

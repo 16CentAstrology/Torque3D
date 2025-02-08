@@ -224,8 +224,7 @@ void TSLastDetail::update( bool forceUpdate )
    // Do we need to update the imposter?
    const String diffuseMapPath = _getDiffuseMapPath();
    bool isFile = Platform::isFile(diffuseMapPath.c_str());
-   if (  forceUpdate || !Platform::isFile(diffuseMapPath.c_str()) ||
-         Platform::compareModifiedTimes( diffuseMapPath, shapeFile ) <= 0 )
+   if (  forceUpdate || !isFile || Platform::compareModifiedTimes( diffuseMapPath, shapeFile ) <= 0 )
       _update();
 
    // If the time check fails now then the update must have not worked.
@@ -505,14 +504,10 @@ void TSLastDetail::_update()
       String imposterPath = _getDiffuseMapPath();
       String normalsPath = _getNormalMapPath();
 
-      FileStream stream;
-      if ( stream.open( imposterPath, Torque::FS::File::Write  ) )
-         destBmp.writeBitmap( "png", stream );
-      stream.close();
-
-      if ( stream.open( normalsPath, Torque::FS::File::Write ) )
-         destNormal.writeBitmap( "png", stream );
-      stream.close();
+      if (!destBmp.writeBitmap("png", imposterPath))
+         Con::errorf("TSLastDetail::_update() - failed to write imposter %s", imposterPath.c_str());
+      if (!destNormal.writeBitmap("png", normalsPath))
+         Con::errorf("TSLastDetail::_update() - failed to write normal %s", normalsPath.c_str());
    }
 
    // DEBUG: Some code to force usage of a test image.

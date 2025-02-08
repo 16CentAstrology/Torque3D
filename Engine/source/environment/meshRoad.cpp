@@ -120,11 +120,11 @@ public:
    MeshRoadNodeEvent() { mNodeList = NULL; }
    virtual ~MeshRoadNodeEvent() { }
 
-   virtual void pack(NetConnection*, BitStream*);
-   virtual void unpack(NetConnection*, BitStream*);
+   void pack(NetConnection*, BitStream*) override;
+   void unpack(NetConnection*, BitStream*) override;
 
-   virtual void copyIntoList(NodeListManager::NodeList* copyInto);
-   virtual void padListToSize();
+   void copyIntoList(NodeListManager::NodeList* copyInto) override;
+   void padListToSize() override;
 
    DECLARE_CONOBJECT(MeshRoadNodeEvent);
 };
@@ -253,7 +253,7 @@ public:
    MeshRoadNodeListNotify( MeshRoad* road, U32 listId ) { mRoad = road; mListId = listId; }
    virtual ~MeshRoadNodeListNotify() { mRoad = NULL; }
 
-   virtual void sendNotification( NodeListManager::NodeList* list );
+   void sendNotification( NodeListManager::NodeList* list ) override;
 };
 
 void MeshRoadNodeListNotify::sendNotification( NodeListManager::NodeList* list )
@@ -956,10 +956,10 @@ void MeshRoad::initPersistFields()
    addGroup( "Internal" );
 
       addProtectedField( "Node", TypeString, 0, &addNodeFromField, &emptyStringProtectedGetFn,
-         "Do not modify, for internal use." );
+         "Do not modify, for internal use.", AbstractClassRep::FIELD_HideInInspectors | AbstractClassRep::FIELD_SpecialtyArrayField);
 
       addProtectedField( "ProfileNode", TypeString, 0, &addProfileNodeFromField, &emptyStringProtectedGetFn,
-         "Do not modify, for internal use." );
+         "Do not modify, for internal use.", AbstractClassRep::FIELD_HideInInspectors | AbstractClassRep::FIELD_SpecialtyArrayField);
 
    endGroup( "Internal" );
 
@@ -1166,6 +1166,60 @@ bool MeshRoad::writeField( StringTableEntry fieldname, const char *value )
       return false;
 
    return Parent::writeField( fieldname, value );
+}
+
+U32 MeshRoad::getSpecialFieldSize(StringTableEntry fieldName)
+{
+   if (fieldName == StringTable->insert("Node"))
+   {
+      return mNodes.size();
+   }
+   else if (fieldName == StringTable->insert("ProfileNode"))
+   {
+      return mSideProfile.mNodes.size();
+   }
+
+   return 0;
+}
+
+const char* MeshRoad::getSpecialFieldOut(StringTableEntry fieldName, const U32& index)
+{
+   if (fieldName == StringTable->insert("Node"))
+   {
+      if (index >= mNodes.size())
+         return NULL;
+
+      const MeshRoadNode& node = mNodes[index];
+
+      char buffer[1024];
+      dMemset(buffer, 0, 1024);
+      dSprintf(buffer, 1024, "Node = \"%g %g %g %g %g %g %g %g\";", node.point.x, node.point.y, node.point.z, node.width, node.depth, node.normal.x, node.normal.y, node.normal.z);
+
+      return StringTable->insert(buffer);
+   }
+   else if (fieldName == StringTable->insert("ProfileNode") && mSideProfile.mNodes.size())
+   {
+      Point3F nodePos = mSideProfile.mNodes[index].getPosition();
+      U8 smooth, mtrl;
+
+      if (index)
+         mtrl = mSideProfile.mSegMtrls[index - 1];
+      else
+         mtrl = 0;
+
+      if (mSideProfile.mNodes[index].isSmooth())
+         smooth = 1;
+      else
+         smooth = 0;
+
+      char buffer[1024];
+      dMemset(buffer, 0, 1024);
+      dSprintf(buffer, 1024, "ProfileNode = \"%.6f %.6f %d %d\";", nodePos.x, nodePos.y, smooth, mtrl);
+
+      return StringTable->insert(buffer);
+   }
+
+   return NULL;
 }
 
 void MeshRoad::onEditorEnable()
@@ -2452,9 +2506,9 @@ void MeshRoad::_generateSlices()
       profileMat2.setRow(1, slicePtr->uvec);
       profileMat2.setRow(2, slicePtr->fvec);
 
-      for(U32 i = 0; i < 2; i++)
+      for(U32 profile = 0; profile < 2; profile++)
       {
-         if(i)
+         if(profile)
             mSideProfile.setTransform(profileMat2, slicePtr->p0);
          else
             mSideProfile.setTransform(profileMat1, slicePtr->p2);
@@ -2470,7 +2524,7 @@ void MeshRoad::_generateSlices()
             slicePtr->verts.push_back(pos);
             box.extend( pos );
 
-            if(i)
+            if(profile)
                slicePtr->pb0 = pos;
             else
                slicePtr->pb2 = pos;

@@ -40,6 +40,7 @@
 #ifndef _TAML_CALLBACKS_H_
 #include "persistence/taml/tamlCallbacks.h"
 #endif
+#include "T3D/objectTypes.h"
 
 class Stream;
 class LightManager;
@@ -300,7 +301,7 @@ class SimObject: public ConsoleObject, public TamlCallbacks
       SimObject*       nextIdObject;
 
       StringTableEntry mInheritFrom;
-
+      bool    mPrototype;
       /// SimGroup we're contained in, if any.
       SimGroup*   mGroup;
       
@@ -388,16 +389,16 @@ class SimObject: public ConsoleObject, public TamlCallbacks
    public:
       inline void setProgenitorFile(const char* pFile) { mProgenitorFile = StringTable->insert(pFile); }
       inline StringTableEntry getProgenitorFile(void) const { return mProgenitorFile; }
-
+      static bool _doPrototype(void* object, const char* index, const char* data);
    protected:
       /// Taml callbacks.
-      virtual void onTamlPreWrite(void) {}
-      virtual void onTamlPostWrite(void) {}
-      virtual void onTamlPreRead(void) {}
-      virtual void onTamlPostRead(const TamlCustomNodes& customNodes) {}
-      virtual void onTamlAddParent(SimObject* pParentObject) {}
-      virtual void onTamlCustomWrite(TamlCustomNodes& customNodes) {}
-      virtual void onTamlCustomRead(const TamlCustomNodes& customNodes);
+      void onTamlPreWrite(void) override {}
+      void onTamlPostWrite(void) override {}
+      void onTamlPreRead(void) override {}
+      void onTamlPostRead(const TamlCustomNodes& customNodes) override {}
+      void onTamlAddParent(SimObject* pParentObject) override {}
+      void onTamlCustomWrite(TamlCustomNodes& customNodes) override {}
+      void onTamlCustomRead(const TamlCustomNodes& customNodes) override;
    
       /// Id number for this object.
       SimObjectId mId;
@@ -454,7 +455,7 @@ class SimObject: public ConsoleObject, public TamlCallbacks
       virtual void _onUnselected() {}
    
       /// We can provide more detail, like object name and id.
-      virtual String _getLogMessage(const char* fmt, va_list args) const;
+      String _getLogMessage(const char* fmt, va_list args) const override;
    
       DEFINE_CREATE_METHOD
       {
@@ -465,7 +466,7 @@ class SimObject: public ConsoleObject, public TamlCallbacks
 
       
       // EngineObject.
-      virtual void _destroySelf();
+      void _destroySelf() override;
 
    public:
       
@@ -529,6 +530,9 @@ class SimObject: public ConsoleObject, public TamlCallbacks
       void setDataFieldType(const U32 fieldTypeId, StringTableEntry slotName, const char *array);
       void setDataFieldType(const char *typeName, StringTableEntry slotName, const char *array);
 
+      virtual U32 getSpecialFieldSize(StringTableEntry fieldName) { return 0; }
+      virtual const char* getSpecialFieldOut(StringTableEntry fieldName, const U32& index) { return NULL; }
+
       /// Get reference to the dictionary containing dynamic fields.
       ///
       /// See @ref simobject_console "here" for a detailed discussion of what this
@@ -548,6 +552,9 @@ class SimObject: public ConsoleObject, public TamlCallbacks
 
       /// Get the internal name of this control
       StringTableEntry getInternalName() const { return mInternalName; }
+
+      /// type-specified slot for returning hints for the main difference between object instances
+      virtual StringTableEntry getTypeHint() const { return StringTable->EmptyString(); }
 
       /// Set the original name of this control
       void setOriginalName(const char* originalName);
@@ -575,6 +582,7 @@ class SimObject: public ConsoleObject, public TamlCallbacks
 
       /// Save object as a TorqueScript File.
       virtual bool save( const char* pcFilePath, bool bOnlySelected = false, const char *preappend = NULL );
+      virtual bool saveAppend(const char* pcFilePath, bool bOnlySelected = false, const char* preappend = NULL);
 
       /// Check if a method exists in the objects current namespace.
       virtual bool isMethod( const char* methodName );
@@ -949,7 +957,7 @@ class SimObject: public ConsoleObject, public TamlCallbacks
       /// @{
 
       /// Return a textual description of the object.
-      virtual String describeSelf() const;
+      String describeSelf() const override;
 
       /// Dump the contents of this object to the console.  Use the Torque Script dump() and dumpF() functions to 
       /// call this.  
@@ -977,6 +985,8 @@ class SimObject: public ConsoleObject, public TamlCallbacks
       
       DECLARE_CONOBJECT( SimObject );
       DECLARE_CALLBACK(void, onInspectPostApply, (SimObject* obj));
+      DECLARE_CALLBACK(void, onSelected, (SimObject* obj));
+      DECLARE_CALLBACK(void, onUnselected, (SimObject* obj));
       
       static SimObject* __findObject( const char* id ) { return Sim::findObject( id ); }
       static const char* __getObjectId( ConsoleObject* object )
@@ -990,7 +1000,7 @@ class SimObject: public ConsoleObject, public TamlCallbacks
       }
 
       // EngineObject.
-      virtual void destroySelf();
+      void destroySelf() override;
 protected:
    bool   is_temp_clone;
 public:
@@ -1006,6 +1016,8 @@ public:
    virtual void reloadReset() { }
 };
 
+typedef SceneObjectTypes GameTypeMasksType;
+DefineBitfieldType(GameTypeMasksType);
 
 /// Smart SimObject pointer.
 ///

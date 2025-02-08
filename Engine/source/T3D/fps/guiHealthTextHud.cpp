@@ -55,7 +55,7 @@ class GuiHealthTextHud : public GuiControl
 public:  
    GuiHealthTextHud();  
   
-   void onRender(Point2I, const RectI &);  
+   void onRender(Point2I, const RectI &) override;  
    static void initPersistFields();  
    DECLARE_CONOBJECT(GuiHealthTextHud);  
    DECLARE_CATEGORY("Gui Game");  
@@ -149,7 +149,7 @@ void GuiHealthTextHud::onRender(Point2I offset, const RectI &updateRect)
    if (!conn)  
       return;  
    ShapeBase* control = dynamic_cast<ShapeBase*>(conn->getControlObject());  
-   if (!control || !(control->getTypeMask() & PlayerObjectType))  
+   if (!control || !(control->getTypeMask() & (PlayerObjectType | VehicleObjectType)))
       return;  
   
    // Just grab the damage/energy right off the control object.    

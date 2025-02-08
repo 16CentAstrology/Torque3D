@@ -57,7 +57,7 @@ void main()
    Surface surface = createSurface(normDepth, colorBuffer, matInfoBuffer, IN_uv0.xy, eyePosWorld, IN_wsEyeRay, cameraToWorld);
    if (getFlag(surface.matFlag, 2))
    { 
-      OUT_col = surface.baseColor;
+      OUT_col = vec4(0,0,0,0);
       return;
    } 
    #ifdef USE_SSAO_MASK
@@ -94,7 +94,7 @@ void main()
          }
          else if (probeConfigData[i].r == 1) //sphere
          {
-            contribution[i] = defineSphereSpaceInfluence(surface.P, probePosArray[i].xyz, probeConfigData[i].g)*atten;
+            contribution[i] = defineSphereSpaceInfluence(surface.P, probePosArray[i].xyz, probeConfigData[i].g, probeConfigData[i].b)*atten; 
          }
 
          if (contribution[i]>0.0)
@@ -182,7 +182,7 @@ void main()
       if (contrib > 0.0f)
       {
          int cubemapIdx = int(probeConfigData[i].a);
-         vec3 dir = boxProject(surface.P, surface.R, worldToObjArray[i], refScaleArray[i].xyz, refPosArray[i].xyz);
+         vec3 dir = boxProject(surface.P-refPosArray[i].xyz, surface.R, worldToObjArray[i], refScaleArray[i].xyz, probePosArray[i].xyz);
 
          irradiance += textureLod(irradianceCubemapAR, vec4(dir, cubemapIdx), 0).xyz * contrib;
          specular += textureLod(specularCubemapAR, vec4(dir, cubemapIdx), lod).xyz * contrib;
@@ -222,9 +222,9 @@ void main()
    float horizonOcclusion = 1.3;
    float horizon = saturate( 1 + horizonOcclusion * dot(surface.R, surface.N));
    horizon *= horizon;
-#if CAPTURING == 1
-   OUT_col = vec4(mix((irradiance + specular* horizon),surface.baseColor.rgb, surface.metalness),0);
-#else
-   OUT_col = vec4((irradiance + specular* horizon)*ambientColor, 0);//alpha writes disabled
-#endif
+   
+   if(isCapturing == 1)
+      OUT_col = vec4(mix((irradiance + specular* horizon),surface.baseColor.rgb, surface.metalness),0);
+   else
+      OUT_col = vec4((irradiance + specular* horizon)*ambientColor, 0);//alpha writes disabled
 }

@@ -9,6 +9,16 @@ MIT Licensed Open Source version of [Torque3D](https://torque3d.org) from [Garag
 [![Discord](https://img.shields.io/badge/Discord%20-%237289DA.svg?&logo=discord&logoColor=white)](https://discord.com/invite/qdAZxT4)
 [![IRC](https://img.shields.io/badge/irc-%23garagegames-green.svg)](https://kiwiirc.com/client/irc.maxgaming.net/?nick=wiki_user|?#garagegames) 
 
+**Build Status:**
+
+[![Windows Build](https://github.com/TorqueGameEngines/Torque3D/actions/workflows/build-windows-msvc.yml/badge.svg)](https://github.com/TorqueGameEngines/Torque3D/actions/workflows/build-windows-msvc.yml)
+
+[![Linux Build](https://github.com/TorqueGameEngines/Torque3D/actions/workflows/build-linux-gcc.yml/badge.svg)](https://github.com/TorqueGameEngines/Torque3D/actions/workflows/build-linux-gcc.yml)
+
+[![MacOSX Build](https://github.com/TorqueGameEngines/Torque3D/actions/workflows/build-macos-clang.yml/badge.svg)](https://github.com/TorqueGameEngines/Torque3D/actions/workflows/build-macos-clang.yml)
+
+
+
 ## More Information
 
 * [Homepage](https://torque3d.org)
@@ -16,7 +26,7 @@ MIT Licensed Open Source version of [Torque3D](https://torque3d.org) from [Garag
 * [Community forum](https://torque3d.org/forums)
 * [Roadmap](https://github.com/orgs/TorqueGameEngines/projects/1)
 * [Binaries](https://github.com/TorqueGameEngines/Torque3D-Binaries)
-* [Guide Docs](https://torque3d.org/docs/t3d/)
+* [Guide Docs](https://docs.torque3d.org/)
 * [Reference Docs](https://reference.torque3d.org/)
 * [Work Blog](https://torque3d.org/blogs/blog/1-work-blog/)
 

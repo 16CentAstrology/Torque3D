@@ -100,7 +100,6 @@ public:
   virtual void    gather_cons_defs(Vector<afxConstraintDef>& defs) { };
 
   DECLARE_CONOBJECT(afxEffectBaseData);
-  DECLARE_CATEGORY("AFX");
 };
 
 //class afxEffectWrapperData : public GameBaseData, public afxEffectDefs
@@ -176,7 +175,7 @@ public:
 
   void                  parse_cons_specs();
   void                  parse_vis_keys();
-  void                  gather_cons_defs(Vector<afxConstraintDef>& defs);
+  void                  gather_cons_defs(Vector<afxConstraintDef>& defs) override;
   void                  pack_mods(BitStream*, afxXM_BaseData* mods[], bool packed);
   void                  unpack_mods(BitStream*, afxXM_BaseData* mods[]);
 
@@ -185,13 +184,13 @@ public:
   /*C*/             afxEffectWrapperData(const afxEffectWrapperData&, bool = false);
   /*D*/             ~afxEffectWrapperData();
 
-  virtual bool      onAdd();
-  virtual void      packData(BitStream*);
-  virtual void      unpackData(BitStream*);
+  bool      onAdd() override;
+  void      packData(BitStream*) override;
+  void      unpackData(BitStream*) override;
 
-  bool              preload(bool server, String &errorStr);
+  bool              preload(bool server, String &errorStr) override;
 
-  virtual void      onPerformSubstitutions();
+  void      onPerformSubstitutions() override;
 
   bool              requiresStop(const afxEffectTimingData& timing) { return effect_desc->requiresStop(this, timing); }
   bool              runsOnServer() { return effect_desc->runsOnServer(this); }
@@ -202,12 +201,11 @@ public:
 
   F32               afterStopTime() { return ewd_timing.fade_out_time; }
 
-  virtual bool      allowSubstitutions() const { return true; }
+  bool      allowSubstitutions() const override { return true; }
 
   static void       initPersistFields();
 
   DECLARE_CONOBJECT(afxEffectWrapperData);
-  DECLARE_CATEGORY("AFX");
 };
 
 inline bool afxEffectWrapperData::testExecConditions(U32 conditions)
@@ -382,7 +380,6 @@ public:
   static afxEffectWrapper* ew_create(afxChoreographer*, afxEffectWrapperData*, afxConstraintMgr*, F32 time_factor, S32 group_index=0);
 
   DECLARE_CONOBJECT(afxEffectWrapper);
-  DECLARE_CATEGORY("AFX");
 };
 
 //~~~~~~~~~~~~~~~~~~~~//~~~~~~~~~~~~~~~~~~~~//~~~~~~~~~~~~~~~~~~~~//~~~~~~~~~~~~~~~~~~~~~//

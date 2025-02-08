@@ -21,6 +21,7 @@
 //-----------------------------------------------------------------------------
 #include "gui/shiny/guiAudioCtrl.h"
 #include "console/engineAPI.h"
+#include "console/script.h"
 #include "sfx/sfxSystem.h"
 #include "sfx/sfxTrack.h"
 #include "sfx/sfxSource.h"
@@ -42,42 +43,38 @@ GuiAudioCtrl::GuiAudioCtrl()
    mTickPeriodMS = 100;
    mLastThink = 0;
    mCurrTick = 0;
-   mPlayIf = "";
    mSoundPlaying = NULL;
 
    mUseTrackDescriptionOnly = false;
-   mDescription.mIs3D = false;
-   mDescription.mIsLooping = true;
-   mDescription.mIsStreaming = false;
-   mDescription.mFadeInTime = -1.f;
-   mDescription.mFadeOutTime = -1.f;
-
    mVolume = 1;
    mPitch = 1;
    mFadeInTime = -1;
    mFadeOutTime = -1;
    mSourceGroup = NULL;
-   setProcessTicks();
 }
 
 GuiAudioCtrl::~GuiAudioCtrl()
 {
-   if (mSoundPlaying)
-      mSoundPlaying->stop();
    SFX_DELETE(mSoundPlaying);
 }
 
 bool GuiAudioCtrl::onWake()
 {
-   return Parent::onWake();
+   bool awake = Parent::onWake();
+   setProcessTicks();
+   _update();
+   return awake;
 }
 
 void GuiAudioCtrl::onSleep()
 {
-   if (mSoundPlaying)
-      mSoundPlaying->stop();
-   SFX_DELETE(mSoundPlaying);
    Parent::onSleep();
+   _update();
+}
+
+void GuiAudioCtrl::onRemove()
+{
+   Parent::onRemove();
 }
 
 void GuiAudioCtrl::processTick()
@@ -153,49 +150,43 @@ void GuiAudioCtrl::initPersistFields()
 
 void GuiAudioCtrl::_update()
 {
-   if (isSoundValid())
+
+   if (testCondition() && isAwake())
    {
-      //mLocalProfile = *mSoundAsset->getSfxProfile();
-      mDescription = *mSoundAsset->getSfxDescription();
-   }
+      bool useTrackDescriptionOnly = (mUseTrackDescriptionOnly && getSoundProfile());
 
-   // Make sure all the settings are valid.
-   mDescription.validate();
-
-   bool useTrackDescriptionOnly = (mUseTrackDescriptionOnly && getSoundProfile());
-
-   if (getSoundProfile())
-   {
-      if (mSoundPlaying == NULL)
+      if (getSoundProfile())
       {
-         mSoundPlaying = SFX->createSource(getSoundProfile());
-      }
-   }
-
-   // The rest only applies if we have a source.
-   if (mSoundPlaying && !useTrackDescriptionOnly)
-   {
-      
-      // Set the volume irrespective of the profile.
-      if (mSourceGroup)
-      {
-         mSourceGroup->addObject(mSoundPlaying);
-         mSoundPlaying->setVolume(mSourceGroup->getVolume() * mVolume);
-      }
-      else
-      {
-         mSoundPlaying->setVolume(mVolume);
+         if (mSoundPlaying == NULL)
+         {
+            mSoundPlaying = SFX->createSource(getSoundProfile(), &(SFX->getListener().getTransform()));
+         }
       }
 
-      mSoundPlaying->setPitch(mPitch);
-      mSoundPlaying->setFadeTimes(mFadeInTime, mFadeOutTime);
-
-   }
-
-   if (testCondition() && isActive() && isAwake())
-   {
-      if (mSoundPlaying && !mSoundPlaying->isPlaying())
+      if ( mSoundPlaying && !mSoundPlaying->isPlaying())
       {
+         // The rest only applies if we have a source.
+         if (!useTrackDescriptionOnly)
+         {
+
+            // Set the volume irrespective of the profile.
+            if (mSourceGroup)
+            {
+               mSourceGroup->addObject(mSoundPlaying);
+               mSoundPlaying->setVolume(mSourceGroup->getVolume() * mVolume);
+            }
+            else
+            {
+               mSoundPlaying->setVolume(mVolume);
+            }
+
+            mSoundPlaying->setPitch(mPitch);
+            mSoundPlaying->setFadeTimes(mFadeInTime, mFadeOutTime);
+
+         }
+         else
+            getSoundDescription()->mSourceGroup->addObject(mSoundPlaying);
+
          mSoundPlaying->play();
       }
    }
@@ -203,7 +194,8 @@ void GuiAudioCtrl::_update()
    {
       if (mSoundPlaying != NULL)
       {
-         mSoundPlaying->stop();
+         SFX_DELETE(mSoundPlaying);
+         setProcessTicks(false);
       }
    }
 }

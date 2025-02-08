@@ -147,7 +147,7 @@ bool LightBase::onAdd()
    // Update the light parameters.
    _conformLights();
 	addToScene();
-
+   setProcessTick(true);
    return true;
 }
 
@@ -256,10 +256,22 @@ void LightBase::_onUnselected()
 
 void LightBase::interpolateTick( F32 delta )
 {
+   if (isMounted()) {
+      MatrixF mat;
+      mMount.object->getRenderMountTransform(delta, mMount.node, mMount.xfm, &mat);
+      mLight->setTransform(mat);
+      Parent::setTransform(mat);
+   }
 }
 
 void LightBase::processTick()
 {
+   if (isMounted()) {
+      MatrixF mat;
+      mMount.object->getMountTransform(mMount.node, mMount.xfm, &mat);
+      mLight->setTransform(mat);
+      setTransform(mat);
+   }
 }
 
 void LightBase::advanceTime( F32 timeDelta )

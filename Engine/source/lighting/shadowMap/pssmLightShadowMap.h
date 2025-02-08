@@ -37,9 +37,9 @@ public:
    PSSMLightShadowMap( LightInfo *light );
 
    // LightShadowMap
-   virtual ShadowType getShadowType() const { return ShadowType_PSSM; }
-   virtual void _render( RenderPassManager* renderPass, const SceneRenderState *diffuseState );
-   virtual void setShaderParameters(GFXShaderConstBuffer* params, LightingShaderConstants* lsc);
+   ShadowType getShadowType() const override { return ShadowType_PSSM; }
+   void _render( RenderPassManager* renderPass, const SceneRenderState *diffuseState ) override;
+   void setShaderParameters(GFXShaderConstBuffer* params, LightingShaderConstants* lsc) override;
 
    /// Used to scale TSShapeInstance::smDetailAdjust to have
    /// objects lod quicker when in the PSSM shadow.
@@ -58,7 +58,7 @@ protected:
    Box3F _calcClipSpaceAABB(const Frustum& f, const MatrixF& transform, F32 farDist);
    void _calcPlanesCullForShadowCasters(Vector< Vector<PlaneF> > &out, const Frustum &viewFrustum, const Point3F &_ligthDir);
    void _roundProjection(const MatrixF& lightMat, const MatrixF& cropMatrix, Point3F &offset, U32 splitNum);
-
+   void _adjustScaleAndOffset(Box3F& clipAABB, Point3F& scale, Point3F& offset);
    static const S32 MAX_SPLITS = 4;
    U32 mNumSplits;
    F32 mSplitDist[MAX_SPLITS+1];   // +1 because we store a cap

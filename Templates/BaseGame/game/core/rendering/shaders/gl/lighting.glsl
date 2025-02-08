@@ -24,6 +24,7 @@
 #include "./brdf.glsl"
 
 uniform float maxProbeDrawDistance;
+uniform int isCapturing;
 
 #ifndef TORQUE_SHADERGEN
 #line 27
@@ -54,16 +55,16 @@ uniform vec4 albedo;
 
 #define MAX_FORWARD_LIGHT 4
 
-#ifndef CAPTURING
-#define CAPTURING 0
-#endif
-
 #ifndef DEBUGVIZ_ATTENUATION
 #define DEBUGVIZ_ATTENUATION 0
 #endif
 
 #ifndef DEBUGVIZ_CONTRIB
 #define DEBUGVIZ_CONTRIB 0
+#endif
+
+#ifndef CAPTURE_LIGHT_FLOOR
+#define CAPTURE_LIGHT_FLOOR 0.04
 #endif
 
 vec3 getDistanceVectorToPlane( vec3 origin, vec3 direction, vec4 plane )
@@ -216,16 +217,16 @@ float getDistanceAtt( vec3 unormalizedLightVector , float invSqrAttRadius )
 
  float getSpotAngleAtt( vec3 normalizedLightVector , vec3 lightDir , vec2 lightSpotParams )
  {
-   float cd = dot ( lightDir , normalizedLightVector );
-   float attenuation = saturate ( ( cd - lightSpotParams.x ) / lightSpotParams.y );
+   float cd = max(dot( lightDir , normalizedLightVector ),0.0);
+   float attenuation = saturate ( ( cd - lightSpotParams.x/(cd*1.001) ) / lightSpotParams.y );
    // smooth the transition
    return sqr(attenuation);
 }
 
 vec3 evaluateStandardBRDF(Surface surface, SurfaceToLight surfaceToLight)
 {
-   //lambert diffuse
-   vec3 Fd = surface.albedo.rgb * M_1OVER_PI_F;
+   //diffuse term
+   vec3 Fd = surface.albedo.rgb * surface.ao * M_1OVER_PI_F;
     
    //GGX specular
    vec3 F = F_Schlick(surface.f0, surface.f90, surfaceToLight.HdotV);
@@ -233,24 +234,43 @@ vec3 evaluateStandardBRDF(Surface surface, SurfaceToLight surfaceToLight)
    float D = D_GGX(surfaceToLight.NdotH, surface.linearRoughnessSq);
    vec3 Fr = D * F * Vis;
 
-#if CAPTURING == 1
-   return saturate(mix(Fd + Fr,surface.f0,surface.metalness));
-#else
-   return saturate(Fd + Fr);
-#endif
-
+   if(isCapturing == 1)
+      return mix(Fd + Fr, surface.baseColor.rgb, surface.metalness);
+   else
+      return Fd + Fr;
 }
 
 vec3 getDirectionalLight(Surface surface, SurfaceToLight surfaceToLight, vec3 lightColor, float lightIntensity, float shadow)
 {
-   vec3 factor = lightColor * max(surfaceToLight.NdotL * shadow * lightIntensity, 0.0f);
+   float lightfloor = CAPTURE_LIGHT_FLOOR;
+   if(isCapturing != 1)
+      lightfloor = 0.0;
+      
+   vec3 factor = lightColor * max(surfaceToLight.NdotL * shadow * lightIntensity, lightfloor);
    return evaluateStandardBRDF(surface,surfaceToLight) * factor;
 }
 
 vec3 getPunctualLight(Surface surface, SurfaceToLight surfaceToLight, vec3 lightColor, float lightIntensity, float radius, float shadow)
 {
+   float lightfloor = CAPTURE_LIGHT_FLOOR;
+   if(isCapturing != 1)
+      lightfloor = 0.0;
+      
    float attenuation = getDistanceAtt(surfaceToLight.Lu, radius);
-   vec3 factor = lightColor * max(surfaceToLight.NdotL * shadow * lightIntensity * attenuation, 0.0f);
+   vec3 factor = lightColor * max(surfaceToLight.NdotL * shadow * lightIntensity * attenuation, lightfloor);
+   return evaluateStandardBRDF(surface,surfaceToLight) * factor;
+}
+
+vec3 getSpotlight(Surface surface, SurfaceToLight surfaceToLight, vec3 lightColor, float lightIntensity, float radius, vec3 lightDir, vec2 lightSpotParams, float shadow)
+{
+   float lightfloor = CAPTURE_LIGHT_FLOOR;
+   if(isCapturing != 1)
+      lightfloor = 0.0;
+      
+   float attenuation = 1.0f;
+   attenuation *= getDistanceAtt(surfaceToLight.Lu, radius);
+   attenuation *= getSpotAngleAtt(-surfaceToLight.L, lightDir, lightSpotParams.xy);
+   vec3 factor = lightColor * max(surfaceToLight.NdotL* shadow * lightIntensity * attenuation, lightfloor);
    return evaluateStandardBRDF(surface,surfaceToLight) * factor;
 }
 
@@ -261,7 +281,7 @@ float computeSpecOcclusion( float NdotV , float AO , float roughness )
 
 float roughnessToMipLevel(float roughness, float numMips)
 {	
-   return roughness * numMips;
+   return pow(abs(roughness),0.25) * numMips;
 }
 
 vec4 compute4Lights( Surface surface,
@@ -270,7 +290,7 @@ vec4 compute4Lights( Surface surface,
                      vec4 inLightConfigData[4],
                      vec4 inLightColor[4],
                      vec4 inLightSpotDir[4],
-                     vec2 lightSpotParams[4],
+                     vec2 inlightSpotParams[4],
                      int hasVectorLight,
                      vec4 vectorLightDirection,
                      vec4 vectorLightingColor,
@@ -305,13 +325,10 @@ vec4 compute4Lights( Surface surface,
             //get punctual light contribution   
             lighting = getPunctualLight(surface, surfaceToLight, lightCol, lightBrightness, lightInvSqrRange, shadowed);
          }
-         else //spot
+         else if(inLightConfigData[i].x == 1) //spot
          {
-               
-            //get Punctual light contribution   
-            lighting = getPunctualLight(surface, surfaceToLight, lightCol, lightBrightness, lightInvSqrRange, shadowed);
-            //get spot angle attenuation
-            lighting *= getSpotAngleAtt(-surfaceToLight.L, inLightSpotDir[i].xyz, lightSpotParams[i].xy );
+            //get spot light contribution   
+            lighting = getSpotlight(surface, surfaceToLight, lightCol, lightBrightness, lightInvSqrRange, inLightSpotDir[i].xyz, inlightSpotParams[i], shadowed);
          }
       }
       finalLighting += lighting;
@@ -332,10 +349,11 @@ vec4 compute4Lights( Surface surface,
 }
 
 //Probe IBL stuff
-float defineSphereSpaceInfluence(vec3 wsPosition, vec3 wsProbePosition, float radius)
+float defineSphereSpaceInfluence(vec3 wsPosition, vec3 wsProbePosition, float radius, float atten)
 {
-   vec3 L = wsProbePosition.xyz - wsPosition;
-   float contribution = 1.0 - length(L) / radius;
+   float3 L = (wsProbePosition.xyz - wsPosition);
+   float innerRadius = radius-(radius*atten);
+   float contribution = 1.0-pow(saturate(length(L)/mix(radius, innerRadius, atten)), M_2PI_F*(1.0-atten));
    return saturate(contribution);
 }
 
@@ -376,7 +394,8 @@ void dampen(inout Surface surface, sampler2D WetnessTexture, float accumTime, fl
    if (degree<=0.0) return;
    vec3 n = abs(surface.N);
 
-   float grav = 2.0-pow(dot(float3(0,0,-1),surface.N),3);
+   float ang = dot(float3(0,0,-1),surface.N);
+   float grav = 2.0-pow(ang,3);
    if (grav<0) grav*=-1.0;
    
    float speed = accumTime*(1.0-surface.roughness)*grav;
@@ -387,8 +406,8 @@ void dampen(inout Surface surface, sampler2D WetnessTexture, float accumTime, fl
    wetness = lerp(wetness,texture(WetnessTexture,vec2(surface.P.zy*0.2+wetoffset)).b,n.x);
    wetness = pow(wetness,3)*degree;
    
-   surface.roughness = lerp(surface.roughness,(1.0-pow(wetness,2))*surface.roughness*0.92f+0.04f,degree);
-   surface.baseColor.rgb = lerp(surface.baseColor.rgb,surface.baseColor.rgb*(2.0-wetness)/2,degree); 
+   surface.roughness = lerp(surface.roughness,(1.0-wetness*surface.roughness)*0.92f+0.04f,ang);
+   surface.baseColor.rgb = lerp(surface.baseColor.rgb*(2.0-wetness),surface.baseColor.rgb,ang*surface.roughness);
    updateSurface(surface);
 }
 
@@ -398,6 +417,11 @@ vec4 computeForwardProbes(Surface surface,
     vec3 wsEyePos, float skylightCubemapIdx, int SkylightDamp, sampler2D BRDFTexture, sampler2D WetnessTexture, float accumTime, float dampness,
 	samplerCubeArray irradianceCubemapAR, samplerCubeArray specularCubemapAR)
 {
+   if (getFlag(surface.matFlag, 2))
+   {
+      return vec4(0,0,0,0);
+   }
+   
    int i = 0;
    float alpha = 1;
    float wetAmmout = 0;
@@ -419,7 +443,7 @@ vec4 computeForwardProbes(Surface surface,
       }
       else if (inProbeConfigData[i].r == 1) //sphere
       {
-         contribution[i] = defineSphereSpaceInfluence(surface.P, inProbePosArray[i].xyz, inProbeConfigData[i].g)*atten;
+         contribution[i] = defineSphereSpaceInfluence(surface.P, inProbePosArray[i].xyz, inProbeConfigData[i].g, inProbeConfigData[i].b*atten);
       }
 
       if (contribution[i]>0.0)
@@ -511,7 +535,7 @@ vec4 computeForwardProbes(Surface surface,
       if (contrib > 0.0f)
       {
          int cubemapIdx = int(inProbeConfigData[i].a);
-         vec3 dir = boxProject(surface.P, surface.R, inWorldToObjArray[i], inRefScaleArray[i].xyz, inRefPosArray[i].xyz);
+         vec3 dir = boxProject(surface.P-inRefPosArray[i].xyz, surface.R, inWorldToObjArray[i], inRefScaleArray[i].xyz, inProbePosArray[i].xyz);
 
          irradiance += textureLod(irradianceCubemapAR, vec4(dir, cubemapIdx), 0).xyz * contrib;
          specular += textureLod(specularCubemapAR, vec4(dir, cubemapIdx), lod).xyz * contrib;
@@ -542,11 +566,11 @@ vec4 computeForwardProbes(Surface surface,
    float horizonOcclusion = 1.3;
    float horizon = saturate( 1 + horizonOcclusion * dot(surface.R, surface.N));
    horizon *= horizon;
-#if CAPTURING == 1
-    return vec4(mix((irradiance + specular* horizon),surface.baseColor.rgb,surface.metalness),0);
-#else
-   return vec4((irradiance + specular* horizon) , 0);//alpha writes disabled
-#endif
+   
+   if(isCapturing == 1)
+      return vec4(mix((irradiance + specular* horizon),surface.baseColor.rgb,surface.metalness),0);
+   else
+      return vec4((irradiance + specular* horizon) , 0);//alpha writes disabled
 }
 
 vec4 debugVizForwardProbes(Surface surface,
@@ -576,7 +600,7 @@ vec4 debugVizForwardProbes(Surface surface,
       }
       else if (inProbeConfigData[i].r == 1) //sphere
       {
-         contribution[i] = defineSphereSpaceInfluence(surface.P, inProbePosArray[i].xyz, inProbeConfigData[i].g);
+         contribution[i] = defineSphereSpaceInfluence(surface.P, inProbePosArray[i].xyz, inProbeConfigData[i].g, inProbeConfigData[i].b);
          if (contribution[i] > 0.0)
             probehits++;
       }
@@ -662,7 +686,7 @@ vec4 debugVizForwardProbes(Surface surface,
       if (contrib > 0.0f)
       {
          float cubemapIdx = inProbeConfigData[i].a;
-         vec3 dir = boxProject(surface.P, surface.R, inWorldToObjArray[i], inRefScaleArray[i].xyz, inRefPosArray[i].xyz);
+         vec3 dir = boxProject(surface.P-inRefPosArray[i].xyz, surface.R, inWorldToObjArray[i], inRefScaleArray[i].xyz, inProbePosArray[i].xyz);
 
          irradiance += textureLod(irradianceCubemapAR, vec4(dir, cubemapIdx), 0).xyz * contrib;
          specular += textureLod(specularCubemapAR, vec4(dir, cubemapIdx), lod).xyz * contrib;

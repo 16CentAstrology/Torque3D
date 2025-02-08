@@ -61,6 +61,8 @@ MaterialManager::MaterialManager()
    mLastTime = 0;
    mDampness = 0.0f;
    mWarningInst = NULL;
+   mMatDefToFlush = NULL;
+   mMatDefToReload = NULL;
    
    GFXDevice::getDeviceEventSignal().notify( this, &MaterialManager::_handleGFXEvent );
 
@@ -73,6 +75,8 @@ MaterialManager::MaterialManager()
    mUsingDeferred = false;
 
    mFlushAndReInit = false;
+   mMatDefShouldFlush = false;
+   mMatDefShouldReload = false;
 
    mDefaultAnisotropy = 1;
    Con::addVariable( "$pref::Video::defaultAnisotropy", TypeS32, &mDefaultAnisotropy, 
@@ -297,10 +301,19 @@ BaseMatInstance *MaterialManager::getMeshDebugMatInstance(const LinearColorF &me
 
 void MaterialManager::mapMaterial(const String & textureName, const String & materialName)
 {
-   if (getMapEntry(textureName).isNotEmpty())
+   String currentMapEntry = getMapEntry(textureName);
+   if (currentMapEntry.isNotEmpty())
    {
       if (!textureName.equal("unmapped_mat", String::NoCase))
-         Con::warnf(ConsoleLogEntry::General, "Warning, overwriting material for: %s", textureName.c_str());
+      {
+         SimObject* originalMat;
+         SimObject* newMat;
+
+         if (Sim::findObject(currentMapEntry, originalMat) && Sim::findObject(materialName, newMat))
+            Con::warnf(ConsoleLogEntry::General, "Warning, overwriting material for: \"%s\" in %s by %s", textureName.c_str(), originalMat->getFilename(), newMat->getFilename());
+         else
+            Con::warnf(ConsoleLogEntry::General, "Warning, overwriting material for: %s", textureName.c_str());
+      }
    }
 
    mMaterialMap[String::ToLower(textureName)] = materialName;
@@ -315,6 +328,12 @@ String MaterialManager::getMapEntry(const String & textureName) const
 }
 
 void MaterialManager::flushAndReInitInstances()
+{
+   // delay flushes and reinits until the start of the next frame.
+   mFlushAndReInit = true;
+}
+
+void MaterialManager::_flushAndReInitInstances()
 {
    // Clear the flag if its set.
    mFlushAndReInit = false;   
@@ -350,8 +369,15 @@ void MaterialManager::flushAndReInitInstances()
 }
 
 // Used in the materialEditor. This flushes the material preview object so it can be reloaded easily.
-void MaterialManager::flushInstance( BaseMaterialDefinition *target )
+void MaterialManager::flushInstance(BaseMaterialDefinition* target)
 {
+   mMatDefToFlush = target;
+   mMatDefShouldFlush = true;
+}
+
+void MaterialManager::_flushInstance( BaseMaterialDefinition *target )
+{
+   mMatDefShouldFlush = false;
    Vector<BaseMatInstance*>::iterator iter = mMatInstanceList.begin();
    while ( iter != mMatInstanceList.end() )
    {
@@ -362,16 +388,26 @@ void MaterialManager::flushInstance( BaseMaterialDefinition *target )
       }
 	  iter++;
    }
+
+   mMatDefToFlush = NULL;
 }
 
-void MaterialManager::reInitInstance( BaseMaterialDefinition *target )
+void MaterialManager::reInitInstance(BaseMaterialDefinition* target)
 {
+   mMatDefToReload = target;
+   mMatDefShouldReload = true;
+}
+
+void MaterialManager::_reInitInstance( BaseMaterialDefinition *target )
+{
+   mMatDefShouldReload = false;
    Vector<BaseMatInstance*>::iterator iter = mMatInstanceList.begin();
    for ( ; iter != mMatInstanceList.end(); iter++ )
    {
       if ( (*iter)->getMaterial() == target )
          (*iter)->reInit();
    }
+   mMatDefToReload = NULL;
 }
 
 void MaterialManager::updateTime()
@@ -490,7 +526,15 @@ bool MaterialManager::_handleGFXEvent( GFXDevice::GFXDeviceEventType event_ )
 
       case GFXDevice::deStartOfFrame:
          if ( mFlushAndReInit )
-            flushAndReInitInstances();
+            _flushAndReInitInstances();
+         if (mMatDefShouldFlush)
+         {
+            _flushInstance(mMatDefToFlush);
+         }
+         if (mMatDefShouldReload)
+         {
+            _reInitInstance(mMatDefToReload);
+         }
          break;
 
       default:

@@ -83,15 +83,14 @@ public:
   /*C*/         afxXM_BaseData();
   /*C*/         afxXM_BaseData(const afxXM_BaseData&, bool = false);
 
-  void          packData(BitStream* stream);
-  void          unpackData(BitStream* stream);
+  void          packData(BitStream* stream) override;
+  void          unpackData(BitStream* stream) override;
 
   static void   initPersistFields();
 
   virtual afxXM_Base* create(afxEffectWrapper* fx, bool on_server) { return 0; }
 
   DECLARE_CONOBJECT(afxXM_BaseData);
-  DECLARE_CATEGORY("AFX");
 };
 
 class afxXM_Base : public afxXM_Defs
@@ -141,13 +140,12 @@ public:
   bool          hasFixedWeight() const;
   F32           getWeightFactor() const;
 
-  void          packData(BitStream* stream);
-  void          unpackData(BitStream* stream);
+  void          packData(BitStream* stream) override;
+  void          unpackData(BitStream* stream) override;
 
   static void   initPersistFields();
 
   DECLARE_CONOBJECT(afxXM_WeightedBaseData);
-  DECLARE_CATEGORY("AFX");
 };
 
 class afxXM_WeightedBase : public afxXM_Base

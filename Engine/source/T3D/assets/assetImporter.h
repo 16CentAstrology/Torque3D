@@ -119,6 +119,11 @@ public:
    String AlwaysImportedNodes;
 
    /// <summary>
+   /// what lod value to use if all submeshes are set to the same detail level
+   /// </summary>
+   S32 singleDetailSize;
+
+   /// <summary>
    /// A list of what nodes should be guaranteed to not be imported if found in the model file. Separated by either , or ;
    /// </summary>
    String AlwaysIgnoreNodes;
@@ -432,8 +437,8 @@ public:
    AssetImportConfig();
    virtual ~AssetImportConfig();
 
-   virtual bool onAdd();
-   virtual void onRemove();
+   bool onAdd() override;
+   void onRemove() override;
 
    /// Engine.
    static void initPersistFields();
@@ -571,8 +576,8 @@ public:
    AssetImportObject();
    virtual ~AssetImportObject();
 
-   virtual bool onAdd();
-   virtual void onRemove();
+   bool onAdd() override;
+   void onRemove() override;
 
    /// Engine.
    static void initPersistFields();
@@ -663,8 +668,8 @@ public:
    AssetImporter();
    virtual ~AssetImporter();
 
-   virtual bool onAdd();
-   virtual void onRemove();
+   bool onAdd() override;
+   void onRemove() override;
 
    /// Engine.
    static void initPersistFields();

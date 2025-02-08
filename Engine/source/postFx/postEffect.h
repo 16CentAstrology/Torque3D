@@ -90,8 +90,9 @@ public:
 
 protected:
 
-   DECLARE_IMAGEASSET_ARRAY(PostEffect, Texture, NumTextures);
+   DECLARE_IMAGEASSET_ARRAY(PostEffect, Texture, NumTextures, onTextureChanged);
    DECLARE_IMAGEASSET_ARRAY_SETGET(PostEffect, Texture);
+   void onTextureChanged() {}
 
    bool mTexSRGB[NumTextures];
 
@@ -163,6 +164,8 @@ protected:
    GFXShaderConstHandle *mInvCameraTransSC;
    GFXShaderConstHandle *mMatCameraToScreenSC;
    GFXShaderConstHandle *mMatScreenToCameraSC;
+
+   GFXShaderConstHandle* mIsCapturingSC;
 
    bool mAllowReflectPass;
 
@@ -384,8 +387,8 @@ public:
    DECLARE_CONOBJECT(PostEffect);
 
    // SimObject
-   virtual bool onAdd();
-   virtual void onRemove();
+   bool onAdd() override;
+   void onRemove() override;
    static void initPersistFields();
 
    /// @name Callbacks

@@ -84,6 +84,7 @@
 /// you need to add your control to the dirty areas of the canvas.
 ///
 class guiCanvas;
+class Point2I;
 typedef Signal<void(GuiCanvas* canvas)> CanvasSizeChangeSignal;
 class GuiCanvas : public GuiControl, public IProcessInput
 {
@@ -212,7 +213,7 @@ protected:
 
    GuiControl *mMenuBarCtrl;
    GuiControl* mMenuBackground;
-
+   bool mConstrainMouse;
 public:
    DECLARE_CONOBJECT(GuiCanvas);
    DECLARE_CATEGORY( "Gui Core" );
@@ -220,8 +221,8 @@ public:
    GuiCanvas();
    virtual ~GuiCanvas();
 
-   virtual bool onAdd();
-   virtual void onRemove();
+   bool onAdd() override;
+   void onRemove() override;
 #ifdef TORQUE_TOOLS
    void setMenuBar(SimObject *obj);
    SimObject* getMenuBar() { return mMenuBarCtrl; }
@@ -233,11 +234,14 @@ public:
    /// @name Rendering methods
    ///
    /// @{
+   void constrainMouse(bool constrained) { mConstrainMouse = constrained; };
+   void constrainMouseCoords(Point2I mousePoint);
 
    /// Repaints the dirty regions of the canvas
    /// @param   preRenderOnly   If set to true, only the onPreRender methods of all the GuiControls will be called
    /// @param   bufferSwap      If set to true, it will swap buffers at the end. This is to support canvas-subclassing.
    virtual void renderFrame(bool preRenderOnly, bool bufferSwap = true);
+
 
    /// Repaints the canvas by calling the platform window display event.
    virtual void paint();
@@ -373,7 +377,7 @@ public:
    /// Processes an input event
    /// @see InputEvent
    /// @param   event   Input event to process
-   virtual bool processInputEvent(InputEventInfo &inputEvent);
+   bool processInputEvent(InputEventInfo &inputEvent) override;
    /// @}
 
    /// @name Mouse Methods
@@ -450,7 +454,7 @@ public:
 
    /// Sets the first responder.
    /// @param   firstResponder    Control to designate as first responder
-   virtual void setFirstResponder(GuiControl *firstResponder);
+   void setFirstResponder(GuiControl *firstResponder) override;
 
    /// This is used to toggle processing of native OS accelerators, not
    /// to be confused with the Torque accelerator key system, to keep them

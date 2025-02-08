@@ -46,10 +46,10 @@ function initializeNavEditor()
    NavEditorTreeWindow.setVisible(false);
    NavEditorConsoleDlg.setVisible(false);
 
-   EditorGui.add(NavEditorGui);
-   EditorGui.add(NavEditorOptionsWindow);
-   EditorGui.add(NavEditorTreeWindow);
-   EditorGui.add(NavEditorConsoleDlg);
+   MainSceneTabPanel.add(NavEditorGui);
+   MainSceneTabPanel.add(NavEditorOptionsWindow);
+   MainSceneTabPanel.add(NavEditorTreeWindow);
+   MainSceneTabPanel.add(NavEditorConsoleDlg);
 
    new ScriptObject(NavEditorPlugin)
    {
@@ -108,6 +108,24 @@ function ENavEditorSettingsPage::init(%this)
    %this-->SpawnClassOptions.setFirstSelected();
 }
 
+function EditorGui::SetNavPalletBar()
+{   
+   //Clears the button pallete stack
+   EWToolsPaletteWindow.setStackCtrl(ToolsPaletteArray); //legacy ctrl adhereance
+   EWToolsPaletteWindow.clearButtons();
+   
+   EWToolsPaletteWindow.setActionMap(WorldEditorInspectorPlugin.map);
+   
+   //Adds a button to the pallete stack
+                          //Name     Icon                         Click Command                         Tooltip text    Keybind
+   EWToolsPaletteWindow.addButton("ViewNavMesh", "ToolsModule:visibility_toggle_n_image", "NavEditorGui.prepSelectionMode();", "", "View NavMesh", "1"); 
+   EWToolsPaletteWindow.addButton("LinkMode", "ToolsModule:nav_link_n_image", "NavEditorGui.setMode(\"LinkMode\");", "", "Create off-mesh links", "2");  
+   EWToolsPaletteWindow.addButton("CoverMode", "ToolsModule:nav_cover_n_image", "NavEditorGui.setMode(\"CoverMode\");", "", "Edit cover", "3");  
+   EWToolsPaletteWindow.addButton("TileMode", "ToolsModule:select_bounds_n_image", "NavEditorGui.setMode(\"TileMode\");", "", "View tiles", "4"); 
+   EWToolsPaletteWindow.addButton("TestMode", "ToolsModule:3rd_person_camera_n_image", "NavEditorGui.setMode(\"TestMode\");", "", "Test pathfinding", "5"); 
+   EWToolsPaletteWindow.refresh();
+}
+
 function NavEditorPlugin::onActivated(%this)
 {
    %this.readSettings();
@@ -157,6 +175,7 @@ function NavEditorPlugin::onActivated(%this)
    NavEditorGui.onEditorActivated(); 
 
    Parent::onActivated(%this);
+   EditorGui.SetNavPalletBar();
 }
 
 function NavEditorPlugin::onDeactivated(%this)

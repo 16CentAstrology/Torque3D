@@ -75,11 +75,11 @@ public:
    DecalRoadNodeEvent() { mNodeList = NULL; }
    virtual ~DecalRoadNodeEvent() { }
 
-   virtual void pack(NetConnection*, BitStream*);
-   virtual void unpack(NetConnection*, BitStream*);
+   void pack(NetConnection*, BitStream*) override;
+   void unpack(NetConnection*, BitStream*) override;
 
-   virtual void copyIntoList(NodeListManager::NodeList* copyInto);
-   virtual void padListToSize();
+   void copyIntoList(NodeListManager::NodeList* copyInto) override;
+   void padListToSize() override;
 
    DECLARE_CONOBJECT(DecalRoadNodeEvent);
 };
@@ -192,7 +192,7 @@ public:
    DecalRoadNodeListNotify( DecalRoad* road, U32 listId ) { mRoad = road; mListId = listId; }
    virtual ~DecalRoadNodeListNotify() { mRoad = NULL; }
 
-   virtual void sendNotification( NodeListManager::NodeList* list );
+   void sendNotification( NodeListManager::NodeList* list ) override;
 };
 
 void DecalRoadNodeListNotify::sendNotification( NodeListManager::NodeList* list )
@@ -322,7 +322,7 @@ void DecalRoad::initPersistFields()
    addGroup( "Internal" );
 
       addProtectedField( "node", TypeString, 0, &addNodeFromField, &emptyStringProtectedGetFn,
-         "Do not modify, for internal use." );
+         "Do not modify, for internal use.", AbstractClassRep::FIELD_HideInInspectors | AbstractClassRep::FIELD_SpecialtyArrayField);
 
    endGroup( "Internal" );
 
@@ -472,6 +472,36 @@ bool DecalRoad::writeField( StringTableEntry fieldname, const char *value )
 
    return Parent::writeField( fieldname, value );
 }
+
+U32 DecalRoad::getSpecialFieldSize(StringTableEntry fieldName)
+{
+   if (fieldName == StringTable->insert("node"))
+   {
+      return mNodes.size();
+   }
+
+   return 0;
+}
+
+const char* DecalRoad::getSpecialFieldOut(StringTableEntry fieldName, const U32& index)
+{
+   if (fieldName == StringTable->insert("node"))
+   {
+      if (index >= mNodes.size())
+         return NULL;
+
+      const RoadNode& node = mNodes[index];
+
+      char buffer[1024];
+      dMemset(buffer, 0, 1024);
+      dSprintf(buffer, 1024, "node = \"%f %f %f %f\";", node.point.x, node.point.y, node.point.z, node.width);
+
+      return StringTable->insert(buffer);
+   }
+
+   return NULL;
+}
+
 
 void DecalRoad::onEditorEnable()
 {

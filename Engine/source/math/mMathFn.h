@@ -217,7 +217,22 @@ inline F32 mRound(const F32 val, const S32 n)
    S32 place = (S32) pow(10.0f, n);  
       
    return mFloor((val*place)+0.5)/place;  
-}  
+}
+
+inline F32 mRoundF(const F32 val, const F32 step)
+{
+   if (step == 0.0f)
+      return val;
+
+   F32 a = mFmod(val, step);
+
+   F32 temp = val;
+
+   if (mFabs(a) > (step / 2))
+      val < 0.0f ? temp -= step : temp += step;
+
+   return(temp - a);
+}
 
 inline S32 mAbs(const S32 val)
 {
@@ -263,6 +278,14 @@ template <typename T>
 inline T mLerp( const T &v1, const T &v2, F32 factor )
 {
    return ( v1 * ( 1.0f - factor ) ) + ( v2 * factor );
+}
+
+/// Template function for determining a percentage of interpolation between any two
+/// types which implement operators for scalar multiply and addition.
+template <typename T>
+inline T mInvLerp(const T& v1, const T& v2, F32 point)
+{
+   return (point - v1) / (v2 - v1);
 }
 
 inline S32 mMulDiv(S32 a, S32 b, S32 c)

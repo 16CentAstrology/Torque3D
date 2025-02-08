@@ -12,79 +12,87 @@
 #include "ts/assimp/assimpAppSequence.h"
 #include "ts/assimp/assimpAppNode.h"
 
-AssimpAppSequence::AssimpAppSequence(aiAnimation *a) :
-   seqStart(0.0f),
-   mAnim(a)
+AssimpAppSequence::AssimpAppSequence(aiAnimation* a)
+   : seqStart(0.0f), seqEnd(0.0f), mTimeMultiplier(1.0f)
 {
+   fps = 30.0f;
+   // Deep copy animation structure
+   mAnim = new aiAnimation(*a);
+   mAnim->mChannels = new aiNodeAnim * [a->mNumChannels];
+   for (U32 i = 0; i < a->mNumChannels; ++i) {
+      mAnim->mChannels[i] = new aiNodeAnim(*a->mChannels[i]);
+   }
+
+   mAnim->mMeshChannels = new aiMeshAnim * [a->mNumMeshChannels];
+   for (U32 i = 0; i < a->mNumMeshChannels; ++i) {
+      mAnim->mMeshChannels[i] = new aiMeshAnim(*a->mMeshChannels[i]);
+   }
+
+   mAnim->mName = a->mName;
    mSequenceName = mAnim->mName.C_Str();
    if (mSequenceName.isEmpty())
       mSequenceName = "ambient";
-   Con::printf("\n[Assimp] Adding %s animation", mSequenceName.c_str());
 
-   fps = (mAnim->mTicksPerSecond > 0) ? mAnim->mTicksPerSecond : 30.0f;
+   Con::printf("\n[Assimp] Adding animation: %s", mSequenceName.c_str());
 
-   U32 maxKeys = 0;
-   F32 maxEndTime = 0;
-   F32 minFrameTime = 100000.0f;
-   // Detect the frame rate (minimum time between keyframes) and max sequence time
-   for (U32 i = 0; i < mAnim->mNumChannels; ++i)
-   {
-      aiNodeAnim *nodeAnim = mAnim->mChannels[i];
-      maxKeys = getMax(maxKeys, nodeAnim->mNumPositionKeys);
-      maxKeys = getMax(maxKeys, nodeAnim->mNumRotationKeys);
-      maxKeys = getMax(maxKeys, nodeAnim->mNumScalingKeys);
+   // Determine the FPS and Time Multiplier
+   determineTimeMultiplier(a);
 
-      if (nodeAnim->mNumPositionKeys)
-         maxEndTime = getMax(maxEndTime, (F32) nodeAnim->mPositionKeys[nodeAnim->mNumPositionKeys-1].mTime);
-      if (nodeAnim->mNumRotationKeys)
-         maxEndTime = getMax(maxEndTime, (F32) nodeAnim->mRotationKeys[nodeAnim->mNumRotationKeys-1].mTime);
-      if (nodeAnim->mNumScalingKeys)
-         maxEndTime = getMax(maxEndTime, (F32) nodeAnim->mScalingKeys[nodeAnim->mNumScalingKeys-1].mTime);
-
-      for (U32 key = 1; key < nodeAnim->mNumPositionKeys; ++key)
-      {
-         F32 deltaT = nodeAnim->mPositionKeys[key].mTime - nodeAnim->mPositionKeys[key-1].mTime;
-         minFrameTime = getMin(minFrameTime, deltaT);
-      }
-      for (U32 key = 1; key < nodeAnim->mNumRotationKeys; ++key)
-      {
-         F32 deltaT = nodeAnim->mRotationKeys[key].mTime - nodeAnim->mRotationKeys[key-1].mTime;
-         minFrameTime = getMin(minFrameTime, deltaT);
-      }
-      for (U32 key = 1; key < nodeAnim->mNumScalingKeys; ++key)
-      {
-         F32 deltaT = nodeAnim->mScalingKeys[key].mTime - nodeAnim->mScalingKeys[key-1].mTime;
-         minFrameTime = getMin(minFrameTime, deltaT);
-      }
-   }
-
-   S32 timeFactor = ColladaUtils::getOptions().animTiming;
-   S32 fpsRequest = ColladaUtils::getOptions().animFPS;
-   if (timeFactor == 0)
-   {  // Timing specified in frames
-      fps = mClamp(fpsRequest, 5 /*TSShapeLoader::MinFrameRate*/, TSShapeLoader::MaxFrameRate);
-      maxKeys = getMax(maxKeys, (U32)maxEndTime);  // Keys won't be assigned for every frame.
-      seqEnd = maxKeys / fps;
-      mTimeMultiplier = 1.0f / fps;
-   }
-   else
-   {  // Timing specified in seconds or ms depending on format
-      if (maxEndTime > 1000.0f || mAnim->mDuration > 1000.0f)
-         timeFactor = 1000.0f;   // If it's more than 1000 seconds, assume it's ms.
-
-      timeFactor = mClamp(timeFactor, 1, 1000);
-      minFrameTime /= (F32)timeFactor;
-      maxEndTime /= (F32)timeFactor;
-      fps = (minFrameTime > 0.0f) ? 1.0f / minFrameTime : fps;
-      fps = mClamp(fpsRequest, 5 /*TSShapeLoader::MinFrameRate*/, TSShapeLoader::MaxFrameRate);
-      seqEnd = maxEndTime;
-      mTimeMultiplier = 1.0f / timeFactor;
-   }
+   // Calculate sequence end time based on keyframes and multiplier
+   calculateSequenceEnd(a);
 }
 
 AssimpAppSequence::~AssimpAppSequence()
 {
 }
+
+void AssimpAppSequence::determineTimeMultiplier(aiAnimation* a)
+{
+   // Set fps from the file or use default
+   fps = (a->mTicksPerSecond > 0) ? a->mTicksPerSecond : 30.0f;
+
+   if (fps >= 1000.0f) { // Indicates milliseconds (GLTF or similar formats)
+      mTimeMultiplier = 1.0f / 1000.0f; // Convert milliseconds to seconds
+      Con::printf("[Assimp] Detected milliseconds timing (FPS >= 1000). Time Multiplier: %f", mTimeMultiplier);
+   }
+   else if (fps > 0.0f) { // Standard FPS
+      fps = mClamp(fps, 5 /*TSShapeLoader::MinFrameRate*/, TSShapeLoader::MaxFrameRate);
+      mTimeMultiplier = 1.0f / fps;
+      Con::printf("[Assimp] Standard FPS detected. Time Multiplier: %f", mTimeMultiplier);
+   }
+   else {
+      // Fall back to 30 FPS as default
+      mTimeMultiplier = 1.0f / 30.0f;
+      Con::printf("[Assimp] FPS not specified. Using default 30 FPS. Time Multiplier: %f", mTimeMultiplier);
+   }
+
+
+}
+
+void AssimpAppSequence::calculateSequenceEnd(aiAnimation* a)
+{
+   for (U32 i = 0; i < a->mNumChannels; ++i) {
+      aiNodeAnim* nodeAnim = a->mChannels[i];
+      F32 maxKeyTime = 0.0f;
+
+      // Calculate the maximum time across all keyframes for this channel
+      for (U32 k = 0; k < nodeAnim->mNumPositionKeys; ++k) {
+         maxKeyTime = getMax(maxKeyTime, (F32)nodeAnim->mPositionKeys[k].mTime);
+      }
+      for (U32 k = 0; k < nodeAnim->mNumRotationKeys; ++k) {
+         maxKeyTime = getMax(maxKeyTime, (F32)nodeAnim->mRotationKeys[k].mTime);
+      }
+      for (U32 k = 0; k < nodeAnim->mNumScalingKeys; ++k) {
+         maxKeyTime = getMax(maxKeyTime, (F32)nodeAnim->mScalingKeys[k].mTime);
+      }
+
+      // Use the multiplier to convert to real sequence time
+      seqEnd = mTimeMultiplier * getMax(seqEnd, maxKeyTime);
+   }
+
+   Con::printf("[Assimp] Sequence End Time: %f seconds", seqEnd);
+}
+
 
 void AssimpAppSequence::setActive(bool active)
 {
@@ -92,17 +100,21 @@ void AssimpAppSequence::setActive(bool active)
    {
       AssimpAppNode::sActiveSequence = mAnim;
       AssimpAppNode::sTimeMultiplier = mTimeMultiplier;
+      Con::printf("[Assimp] Activating sequence: %s with Time Multiplier: %f", mSequenceName.c_str(), mTimeMultiplier);
    }
    else
    {
       if (AssimpAppNode::sActiveSequence == mAnim)
+      {
          AssimpAppNode::sActiveSequence = NULL;
+         Con::printf("[Assimp] Deactivating sequence: %s", mSequenceName.c_str());
+      }
    }
 }
 
 U32 AssimpAppSequence::getFlags() const 
 { 
-   return TSShape::Blend;
+   return TSShape::Cyclic;
 }
 F32 AssimpAppSequence::getPriority() const 
 { 
@@ -110,5 +122,5 @@ F32 AssimpAppSequence::getPriority() const
 }
 F32 AssimpAppSequence::getBlendRefTime() const 
 { 
-   return -1.0f; 
+   return 0.0f; 
 }

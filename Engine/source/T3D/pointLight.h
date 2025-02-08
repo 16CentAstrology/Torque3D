@@ -37,8 +37,8 @@ protected:
    F32 mRadius;
  
    // LightBase
-   void _conformLights();
-   void _renderViz( SceneRenderState *state );
+   void _conformLights() override;
+   void _renderViz( SceneRenderState *state ) override;
 
 public:
 
@@ -47,14 +47,15 @@ public:
 
    // ConsoleObject
    DECLARE_CONOBJECT( PointLight );
+   DECLARE_CATEGORY("Lighting \t Lights");
    static void initPersistFields();
 
    // SceneObject
-   virtual void setScale( const VectorF &scale );
+   void setScale( const VectorF &scale ) override;
 
    // NetObject
-   U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-   void unpackUpdate( NetConnection *conn, BitStream *stream );  
+   U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream ) override;
+   void unpackUpdate( NetConnection *conn, BitStream *stream ) override;  
 };
 
 #endif // _POINTLIGHT_H_

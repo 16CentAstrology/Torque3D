@@ -53,9 +53,8 @@ float4 main(PFXVertToPix IN) : SV_TARGET
       
    if (getFlag(surface.matFlag, 2))
    {
-      return surface.baseColor;
-   } 
-   
+      return float4(0,0,0,0);
+   }
    #ifdef USE_SSAO_MASK
       float ssao =  1.0 - TORQUE_TEX2D( ssaoMask, viewportCoordToRenderTarget( IN.uv0.xy, rtParams7 ) ).r;
       surface.ao = min(surface.ao, ssao);  
@@ -83,12 +82,12 @@ float4 main(PFXVertToPix IN) : SV_TARGET
 
          float atten =1.0-(length(eyePosWorld-probePosArray[i].xyz)/maxProbeDrawDistance);
          if (probeConfigData[i].r == 0) //box
-         {
+         { 
             contribution[i] = defineBoxSpaceInfluence(surface.P, worldToObjArray[i], probeConfigData[i].b)*atten;
          }
-         else if (probeConfigData[i].r == 1) //sphere
-         {
-            contribution[i] = defineSphereSpaceInfluence(surface.P, probePosArray[i].xyz, probeConfigData[i].g)*atten;
+         else if (probeConfigData[i].r == 1) //sphere  
+         { 
+            contribution[i] = defineSphereSpaceInfluence(surface.P, probePosArray[i].xyz, probeConfigData[i].g, probeConfigData[i].b)*atten; 
          }
 
             if (contribution[i]>0.0)
@@ -173,7 +172,7 @@ float4 main(PFXVertToPix IN) : SV_TARGET
       if (contrib > 0.0f)
       {
          int cubemapIdx = probeConfigData[i].a;
-         float3 dir = boxProject(surface.P, surface.R, worldToObjArray[i], refScaleArray[i].xyz, refPosArray[i].xyz);
+         float3 dir = boxProject(surface.P-refPosArray[i].xyz, surface.R, worldToObjArray[i], refScaleArray[i].xyz, probePosArray[i].xyz);
 
          irradiance += TORQUE_TEXCUBEARRAYLOD(irradianceCubemapAR, dir, cubemapIdx, 0).xyz * contrib;
          specular += TORQUE_TEXCUBEARRAYLOD(specularCubemapAR, dir, cubemapIdx, lod).xyz * contrib;
@@ -208,9 +207,9 @@ float4 main(PFXVertToPix IN) : SV_TARGET
    float horizonOcclusion = 1.3;
    float horizon = saturate( 1 + horizonOcclusion * dot(surface.R, surface.N));
    horizon *= horizon;
-#if CAPTURING == 1
-    return float4(lerp((irradiance + specular* horizon), surface.baseColor.rgb,surface.metalness),0);
-#else
-   return float4((irradiance + specular* horizon)*ambientColor, 0);//alpha writes disabled   
-#endif
+   
+   if(isCapturing == 1)
+      return float4(lerp((irradiance + specular* horizon), surface.baseColor.rgb,surface.metalness),0);
+   else
+      return float4((irradiance + specular* horizon)*ambientColor, 0);//alpha writes disabled
 }

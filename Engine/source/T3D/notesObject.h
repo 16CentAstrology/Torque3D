@@ -67,6 +67,7 @@ public:
    // Declare this object as a ConsoleObject so that we can
    // instantiate it into the world and network it
    DECLARE_CONOBJECT(NotesObject);
+   DECLARE_CATEGORY("Markers");
 
    //--------------------------------------------------------------------------
    // Object Editing
@@ -77,24 +78,24 @@ public:
    // Set up any fields that we want to be editable (like position)
    static void initPersistFields();
 
-   void inspectPostApply();
+   void inspectPostApply() override;
 
    // Handle when we are added to the scene and removed from the scene
-   bool onAdd();
-   void onRemove();
+   bool onAdd() override;
+   void onRemove() override;
 
    // Override this so that we can dirty the network flag when it is called
-   void setTransform(const MatrixF& mat);
+   void setTransform(const MatrixF& mat) override;
 
    // This function handles sending the relevant data from the server
    // object to the client object
-   U32 packUpdate(NetConnection* conn, U32 mask, BitStream* stream);
+   U32 packUpdate(NetConnection* conn, U32 mask, BitStream* stream) override;
    // This function handles receiving relevant data from the server
    // object and applying it to the client object
-   void unpackUpdate(NetConnection* conn, BitStream* stream);
+   void unpackUpdate(NetConnection* conn, BitStream* stream) override;
 
    // This is the function that allows this object to submit itself for rendering
-   void prepRenderImage(SceneRenderState* state);
+   void prepRenderImage(SceneRenderState* state) override;
 
    void _render(ObjectRenderInst* ri, SceneRenderState* state, BaseMatInstance* overrideMat);
 

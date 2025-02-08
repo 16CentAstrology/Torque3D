@@ -51,6 +51,8 @@ $pref::Video::disablePixSpecular = false;
 
 $pref::Video::disableCubemapping = false;
 
+$pref::PostFX::EnableHDRBloom = true;
+
 ///
 $pref::Video::enableParallaxMapping = true;
 
@@ -81,10 +83,6 @@ $pref::SFX::autoDetect = true;
 /// a special Null provider which acts normally, but 
 /// plays no sound.
 $pref::SFX::provider = "OpenAL";
-
-/// The sound device to select from the provider.  Each
-/// provider may have several different devices.
-$pref::SFX::device = "OpenAL Soft";
 
 /// If true the device will try to use hardware buffers
 /// and sound mixing.  If not it will use software.

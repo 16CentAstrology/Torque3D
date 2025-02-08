@@ -72,10 +72,10 @@ namespace Win32
       HANDLE   *getHANDLES() { return mHandleList.address(); }
 
    private:
-      virtual void   internalProcessOnce();
+      void   internalProcessOnce() override;
 
-      virtual bool   internalAddNotification( const Path &dir );
-      virtual bool   internalRemoveNotification( const Path &dir );
+      bool   internalAddNotification( const Path &dir ) override;
+      bool   internalRemoveNotification( const Path &dir ) override;
 
       Vector<Path>   mDirs;
       Vector<HANDLE> mHandleList;
@@ -138,20 +138,27 @@ static void _CopyStatAttributes(const WIN32_FIND_DATAW& info, FileNode::Attribut
    if (info.dwFileAttributes & FILE_ATTRIBUTE_READONLY)
       attr->flags |= FileNode::ReadOnly;
 
+   SYSTEMTIME st, stLocal;
+   FILETIME ftLocal;
+
    attr->size = info.nFileSizeLow;
-   attr->mtime = Win32FileTimeToTime(
-      info.ftLastWriteTime.dwLowDateTime,
-      info.ftLastWriteTime.dwHighDateTime);
 
-   attr->atime = Win32FileTimeToTime(
-      info.ftLastAccessTime.dwLowDateTime,
-      info.ftLastAccessTime.dwHighDateTime);
+   FileTimeToSystemTime(&(info.ftLastWriteTime), &st);
+   SystemTimeToTzSpecificLocalTime(NULL, &st, &stLocal);
+   SystemTimeToFileTime(&stLocal, &ftLocal);
+   attr->mtime = Win32FileTimeToTime(ftLocal.dwLowDateTime, ftLocal.dwHighDateTime);
 
-   attr->ctime = Win32FileTimeToTime(
-      info.ftCreationTime.dwLowDateTime,
-      info.ftCreationTime.dwHighDateTime);
+   FileTimeToSystemTime(&(info.ftLastAccessTime), &st);
+   SystemTimeToTzSpecificLocalTime(NULL, &st, &stLocal);
+   SystemTimeToFileTime(&stLocal, &ftLocal);
+   attr->atime = Win32FileTimeToTime(ftLocal.dwLowDateTime, ftLocal.dwHighDateTime);
+
+
+   FileTimeToSystemTime(&(info.ftCreationTime), &st);
+   SystemTimeToTzSpecificLocalTime(NULL, &st, &stLocal);
+   SystemTimeToFileTime(&stLocal, &ftLocal);
+   attr->ctime = Win32FileTimeToTime(ftLocal.dwLowDateTime, ftLocal.dwHighDateTime);
 }
-
 
 //-----------------------------------------------------------------------------
 

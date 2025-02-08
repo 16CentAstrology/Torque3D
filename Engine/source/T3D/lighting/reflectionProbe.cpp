@@ -56,7 +56,7 @@
 extern bool gEditingMission;
 extern ColorI gCanvasClearColor;
 bool ReflectionProbe::smRenderPreviewProbes = true;
-
+static MatrixF sEditingTransformMat;
 IMPLEMENT_CO_NETOBJECT_V1(ReflectionProbe);
 
 ConsoleDocClass(ReflectionProbe,
@@ -133,6 +133,7 @@ ReflectionProbe::ReflectionProbe()
 
    mCaptureMask = REFLECTION_PROBE_CAPTURE_TYPEMASK;
    mCanDamp = false;
+   mAtten = 0.0f;
 }
 
 ReflectionProbe::~ReflectionProbe()
@@ -152,10 +153,11 @@ ReflectionProbe::~ReflectionProbe()
 void ReflectionProbe::initPersistFields()
 {
    docsURL;
-   addField("canDamp", TypeBool, Offset(mCanDamp, ReflectionProbe),"wetness allowed");
    addGroup("Rendering");
       addProtectedField("enabled", TypeBool, Offset(mEnabled, ReflectionProbe),
          &_setEnabled, &defaultProtectedGetFn, "Is the probe enabled or not");
+      addField("canDamp", TypeBool, Offset(mCanDamp, ReflectionProbe),"wetness allowed");
+      addField("attenuation", TypeF32, Offset(mAtten, ReflectionProbe), "falloff percent");
    endGroup("Rendering");
 
    addGroup("Reflection");
@@ -182,6 +184,10 @@ void ReflectionProbe::initPersistFields()
    Con::addVariable("$Light::renderReflectionProbes", TypeBool, &RenderProbeMgr::smRenderReflectionProbes,
       "Toggles rendering of light frustums when the light is selected in the editor.\n\n"
       "@note Only works for shadow mapped lights.\n\n"
+      "@ingroup Lighting");
+
+   Con::addVariable("$Probes::Capturing", TypeBool, &RenderProbeMgr::smBakeReflectionProbes,
+      "Toggles probe rendering capture state.\n\n"
       "@ingroup Lighting");
 
    Con::addVariable("$Light::renderPreviewProbes", TypeBool, &ReflectionProbe::smRenderPreviewProbes,
@@ -371,10 +377,10 @@ const MatrixF& ReflectionProbe::getTransform() const
       return mObjToWorld; 
    else
    {
-      MatrixF transformMat = MatrixF::Identity;
-      transformMat.setPosition(mProbeRefOffset);
+      sEditingTransformMat = MatrixF::Identity;
+      sEditingTransformMat.setPosition(mProbeRefOffset);
 
-      return transformMat;
+      return sEditingTransformMat;
    }
 }
 
@@ -432,6 +438,7 @@ U32 ReflectionProbe::packUpdate(NetConnection *conn, U32 mask, BitStream *stream
       stream->write(mProbeUniqueID);
       stream->write((U32)mReflectionModeType);
       stream->writeString(mCubemapName);
+      stream->write(mAtten);
    }
 
    if (stream->writeFlag(mask & EnabledMask))
@@ -486,6 +493,7 @@ void ReflectionProbe::unpackUpdate(NetConnection *conn, BitStream *stream)
       if(oldReflectModeType != mReflectionModeType || oldCubemapName != mCubemapName)
          mCubemapDirty = true;
 
+      stream->read(&mAtten);
       mDirty = true;
    }
 
@@ -561,6 +569,7 @@ void ReflectionProbe::updateProbeParams()
    mProbeInfo.mProbeRefOffset = mProbeRefOffset;
    mProbeInfo.mProbeRefScale = mProbeRefScale;
    mProbeInfo.mCanDamp = mCanDamp;
+   mProbeInfo.mAtten = mAtten;
    
    mProbeInfo.mDirty = true;
 
@@ -793,7 +802,9 @@ void ReflectionProbe::bake()
    if (mReflectionModeType != BakedCubemap)
       return;
 
+   PROBEMGR->preBake();
    PROBEMGR->bakeProbe(this);
+   PROBEMGR->postBake();
 
    setMaskBits(-1);
 }
@@ -823,7 +834,7 @@ void ReflectionProbe::createEditorResources()
 
 void ReflectionProbe::prepRenderImage(SceneRenderState *state)
 {
-   if (!mEnabled || (!RenderProbeMgr::smRenderReflectionProbes && !dStrcmp(Con::getVariable("$Probes::Capturing", "0"),"1")))
+   if (!mEnabled || (!RenderProbeMgr::smRenderReflectionProbes || RenderProbeMgr::smBakeReflectionProbes))
       return;
 
    Point3F distVec = getRenderPosition() - state->getCameraPosition();
@@ -882,6 +893,9 @@ void ReflectionProbe::prepRenderImage(SceneRenderState *state)
          return;
 
       BaseMatInstance* probePrevMat = mEditorShapeInst->getMaterialList()->getMaterialInst(0);
+
+      if (probePrevMat == nullptr)
+         return;
 
       setPreviewMatParameters(state, probePrevMat);
 

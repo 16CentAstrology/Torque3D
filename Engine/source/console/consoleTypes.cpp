@@ -409,6 +409,27 @@ ConsoleSetType( TypeS32Vector )
    else
       Con::printf("Vector<S32> must be set as { a, b, c, ... } or \"a b c ...\"");
 }
+//-----------------------------------------------------------------------------
+// TypeF64
+//-----------------------------------------------------------------------------
+ConsoleType(double, TypeF64, F64, "")
+ImplementConsoleTypeCasters(TypeF64, F64)
+
+ConsoleGetType(TypeF64)
+{
+   static const U32 bufSize = 256;
+   char* returnBuffer = Con::getReturnBuffer(bufSize);
+   dSprintf(returnBuffer, bufSize, "%g", *((F64*)dptr));
+   return returnBuffer;
+}
+ConsoleSetType(TypeF64)
+{
+   if (argc == 1)
+      *((F64*)dptr) = dAtod(argv[0]);
+   else
+      Con::printf("(TypeF64) Cannot set multiple args to a single F64.");
+}
+
 
 //-----------------------------------------------------------------------------
 // TypeF32

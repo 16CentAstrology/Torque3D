@@ -69,12 +69,17 @@ class GuiObjectView : public GuiTSCtrl
       /// @name Model
       /// @{
       
-      /// Name of the model loaded for display.
-      StringTableEntry mModelName;
-
-      /// Model being displayed in the view.
-      TSShapeInstance* mModel;
-
+      ///Model loaded for display.
+      DECLARE_SHAPEASSET(GuiObjectView, Model, onModelChanged);
+      static bool _setModelData(void* obj, const char* index, const char* data)\
+      {
+         bool ret = false;
+         GuiObjectView* object = static_cast<GuiObjectView*>(obj);
+         ret = object->setObjectModel(StringTable->insert(data));
+         return ret;
+      }
+      void onModelChanged();
+      TSShapeInstance* mModelInstance;
       /// Name of skin to use on model.
       String mSkinName;
       
@@ -103,8 +108,17 @@ class GuiObjectView : public GuiTSCtrl
       /// @name Mounting
       /// @{
       
-      /// Name of model to mount to the primary model.
-      String mMountedModelName;
+      ///Model to mount to the primary model.
+      DECLARE_SHAPEASSET(GuiObjectView, MountedModel, onMountedModelChanged);
+      static bool _setMountedModelData(void* obj, const char* index, const char* data)\
+      {
+         bool ret = false;
+         GuiObjectView* object = static_cast<GuiObjectView*>(obj);
+         ret = object->setMountedObject(StringTable->insert(data));
+         return ret;
+      }
+      void onMountedModelChanged();
+      TSShapeInstance* mMountedModelInstance;
       
       ///
       String mMountSkinName;
@@ -114,9 +128,6 @@ class GuiObjectView : public GuiTSCtrl
       
       /// Name of node to mount the secondary model to.  Unset by default.
       String mMountNodeName;
-
-      /// Model mounted as an image to the primary model.
-      TSShapeInstance* mMountedModel;
             
       ///
       MatrixF mMountTransform;
@@ -164,7 +175,7 @@ class GuiObjectView : public GuiTSCtrl
       void _initMount();
       
       ///
-      void onStaticModified( StringTableEntry slotName, const char* newValue );
+      void onStaticModified( StringTableEntry slotName, const char* newValue ) override;
 
    public:
    
@@ -173,13 +184,7 @@ class GuiObjectView : public GuiTSCtrl
       
       /// @name Model
       /// @{
-      
-      ///
-      const String& getModelName() const { return mModelName; }
-
-      /// Return the instance of the model being rendered in the view.
-      TSShapeInstance* getModel() const { return mModel; }
-      
+ 
       /// Return the name of the skin used on the primary model.
       const String& getSkin() const { return mSkinName; }
             
@@ -187,7 +192,7 @@ class GuiObjectView : public GuiTSCtrl
       void setSkin( const String& name );
 
       /// Set the model to show in this view.
-      void setObjectModel( const String& modelName );
+      bool setObjectModel( const String& modelName );
       
       /// @}
       
@@ -206,13 +211,7 @@ class GuiObjectView : public GuiTSCtrl
       
       /// @name Mounting
       /// @{
-      
-      /// Return the model mounted to the current primary model; NULL if none.
-      TSShapeInstance* getMountedModel() const { return mMountedModel; }
-      
-      ///
-      const String& getMountedModelName() const { return mMountedModelName; }
-      
+
       /// Return the name of the skin used on the mounted model.
       const String& getMountSkin() const { return mMountSkinName; }
       
@@ -226,7 +225,7 @@ class GuiObjectView : public GuiTSCtrl
       void setMountNode( const String& nodeName );
       
       ///
-      void setMountedObject( const String& modelName );
+      bool setMountedObject( const String& modelName );
             
       /// @}
       
@@ -268,19 +267,19 @@ class GuiObjectView : public GuiTSCtrl
       /// @}
       
       // GuiTsCtrl.
-      bool onWake();
+      bool onWake() override;
 
-      void onMouseEnter( const GuiEvent& event );
-      void onMouseLeave( const GuiEvent& event );
-      void onMouseDown( const GuiEvent& event );
-      void onMouseUp( const GuiEvent& event );
-      void onMouseDragged( const GuiEvent& event );
-      void onRightMouseDown( const GuiEvent& event );
-      void onRightMouseUp( const GuiEvent& event );
-      void onRightMouseDragged( const GuiEvent& event );
+      void onMouseEnter( const GuiEvent& event ) override;
+      void onMouseLeave( const GuiEvent& event ) override;
+      void onMouseDown( const GuiEvent& event ) override;
+      void onMouseUp( const GuiEvent& event ) override;
+      void onMouseDragged( const GuiEvent& event ) override;
+      void onRightMouseDown( const GuiEvent& event ) override;
+      void onRightMouseUp( const GuiEvent& event ) override;
+      void onRightMouseDragged( const GuiEvent& event ) override;
 
-      bool processCameraQuery( CameraQuery* query );
-      void renderWorld( const RectI& updateRect );
+      bool processCameraQuery( CameraQuery* query ) override;
+      void renderWorld( const RectI& updateRect ) override;
       
       static void initPersistFields();
 

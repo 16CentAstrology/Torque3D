@@ -264,7 +264,7 @@ IMPLEMENT_CALLBACK( PlayerData, onLeaveLiquid, void, ( Player* obj, const char* 
    "@param obj The Player object\n"
    "@param type The type of liquid the player has left\n" );
 
-IMPLEMENT_CALLBACK( PlayerData, animationDone, void, ( Player* obj ), ( obj ),
+IMPLEMENT_CALLBACK( PlayerData, animationDone, void, ( Player* obj, const char * animName), ( obj, animName),
    "@brief Called on the server when a scripted animation completes.\n\n"
    "@param obj The Player object\n"
    "@see Player::setActionThread() for setting a scripted animation and its 'hold' parameter to "
@@ -1584,6 +1584,7 @@ Player::Player()
    mActionAnimation.holdAtEnd = false;
    mActionAnimation.animateOnServer = false;
    mActionAnimation.atEnd = false;
+   mActionAnimation.callbackTripped = false;
    mState = MoveState;
    mJetting = false;
    mFalling = false;
@@ -3848,7 +3849,7 @@ void Player::setActionThread(U32 action,bool forward,bool hold,bool wait,bool fs
       mActionAnimation.atEnd           = false;
       mActionAnimation.delayTicks      = (S32)sNewAnimationTickTime;
       mActionAnimation.atEnd           = false;
-
+      mActionAnimation.callbackTripped = false;
       if (sUseAnimationTransitions && (action != PlayerData::LandAnim || !(mDataBlock->landSequenceTime > 0.0f && !mDataBlock->transitionToLand)) && (isGhost()/* || mActionAnimation.animateOnServer*/))
       {
          // The transition code needs the timeScale to be set in the
@@ -3937,7 +3938,7 @@ void Player::updateActionThread()
 
          if( gClientContainer.castRay( Point3F( pos.x, pos.y, pos.z + 0.01f ),
                Point3F( pos.x, pos.y, pos.z - 2.0f ),
-               STATIC_COLLISION_TYPEMASK | VehicleObjectType, &rInfo ) )
+               (U32)STATIC_COLLISION_TYPEMASK | (U32)VehicleObjectType, &rInfo ) )
          {
             Material* material = ( rInfo.material ? dynamic_cast< Material* >( rInfo.material->getMaterial() ) : 0 );
 
@@ -4001,14 +4002,22 @@ void Player::updateActionThread()
    if (mMountPending)
       mMountPending = (isMounted() ? 0 : (mMountPending - 1));
 
-   if ((mActionAnimation.action == PlayerData::NullAnimation) ||
-       ((!mActionAnimation.waitForEnd || mActionAnimation.atEnd) &&
-       (!mActionAnimation.holdAtEnd && (mActionAnimation.delayTicks -= !mMountPending) <= 0)))
+   if (isServerObject() && (mActionAnimation.action >= PlayerData::NumTableActionAnims) && mActionAnimation.atEnd)
    {
       //The scripting language will get a call back when a script animation has finished...
       //  example: When the chat menu animations are done playing...
-      if ( isServerObject() && mActionAnimation.action >= PlayerData::NumTableActionAnims )
-         mDataBlock->animationDone_callback( this );
+      bool tripCallback = false;
+      if ((!mActionAnimation.holdAtEnd)||(mActionAnimation.holdAtEnd && !mActionAnimation.callbackTripped))
+         tripCallback = true;
+      if (tripCallback)
+         mDataBlock->animationDone_callback(this, mActionAnimation.thread->getSequenceName());
+      mActionAnimation.callbackTripped = true;
+   }
+
+   if ((mActionAnimation.action == PlayerData::NullAnimation) ||
+      ((!mActionAnimation.waitForEnd || mActionAnimation.atEnd) &&
+         (!mActionAnimation.holdAtEnd && (mActionAnimation.delayTicks -= !mMountPending) <= 0)))
+   {
       pickActionAnimation();
    }
 
@@ -4753,15 +4762,20 @@ bool Player::step(Point3F *pos,F32 *maxStep,F32 time)
 // PATHSHAPE
 // This Function does a ray cast down to see if a pathshape object is below
 // If so, it will attempt to attach to it.
-void Player::updateAttachment(){
+void Player::updateAttachment()
+{
    Point3F rot, pos;
     RayInfo rInfo;
     MatrixF mat = getTransform();
     mat.getColumn(3, &pos);
+    disableCollision();
     if (gServerContainer.castRay(Point3F(pos.x, pos.y, pos.z + 0.1f),
         Point3F(pos.x, pos.y, pos.z - 1.0f ),
-        PathShapeObjectType, &rInfo))
+       sCollisionMoveMask, &rInfo))
     {
+       if ((mJumpSurfaceLastContact < JumpSkipContactsMax) && !mSwimming)
+          setPosition(rInfo.point, getRotation());
+
        if( rInfo.object->getTypeMask() & PathShapeObjectType) //Ramen
        {
           if (getParent() == NULL)
@@ -4781,12 +4795,13 @@ void Player::updateAttachment(){
     }
     else
     {	 
-       if (getParent() !=NULL)
+       if (getParent() != NULL)
        {
           clearProcessAfter();
           attachToParent(NULL);
        }
     }
+    enableCollision();
 }
 // PATHSHAPE END
 
@@ -5075,8 +5090,12 @@ F32 Player::_doCollisionImpact( const Collision *collision, bool fallingCollisio
    if ( ((bd > mDataBlock->minImpactSpeed && fallingCollision) || bd > mDataBlock->minLateralImpactSpeed) 
       && !mMountPending )
    {
-      if ( !isGhost() )
-         onImpact( collision->object, collision->normal * bd );
+      if (!isGhost())
+      {
+         onImpact(collision->object, collision->normal * bd);
+         mImpactSound = PlayerData::ImpactNormal;
+         setMaskBits(ImpactMask);
+      }
 
       if (mDamageState == Enabled && mState != RecoverState) 
       {
@@ -5099,13 +5118,6 @@ F32 Player::_doCollisionImpact( const Collision *collision, bool fallingCollisio
             setState(RecoverState, recover);
          }
       }
-   }
-
-   if ( isServerObject() && 
-      (bd > (mDataBlock->minImpactSpeed / 3.0f) || bd > (mDataBlock->minLateralImpactSpeed / 3.0f )) ) 
-   {
-      mImpactSound = PlayerData::ImpactNormal;
-      setMaskBits(ImpactMask);
    }
 
    return bd;
@@ -5562,7 +5574,7 @@ void Player::setTransform(const MatrixF& mat)
    mat.getColumn(3,&pos);
    Point3F rot(0.0f, 0.0f, -mAtan2(-vec.x,vec.y));
    setPosition(pos,rot);
-   setMaskBits(MoveMask | NoWarpMask);
+   setMaskBits((U32)MoveMask | (U32)NoWarpMask);
 }
 
 void Player::getEyeTransform(MatrixF* mat)
@@ -7073,7 +7085,7 @@ void Player:: playImpactSound()
 
       if( gClientContainer.castRay( Point3F( pos.x, pos.y, pos.z + 0.01f ),
                                     Point3F( pos.x, pos.y, pos.z - 2.0f ),
-                                    STATIC_COLLISION_TYPEMASK | VehicleObjectType,
+                                    (U32)STATIC_COLLISION_TYPEMASK | (U32)VehicleObjectType,
                                     &rInfo ) )
       {
          Material* material = ( rInfo.material ? dynamic_cast< Material* >( rInfo.material->getMaterial() ) : 0 );

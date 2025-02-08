@@ -69,7 +69,7 @@ public:
    GuiShapeNameHud();
 
    // GuiControl
-   virtual void onRender(Point2I offset, const RectI &updateRect);
+   void onRender(Point2I offset, const RectI &updateRect) override;
 
    static void initPersistFields();
    DECLARE_CONOBJECT( GuiShapeNameHud );
@@ -209,7 +209,7 @@ void GuiShapeNameHud::onRender( Point2I, const RectI &updateRect)
             // Target pos to test, if it's a player run the LOS to his eye
             // point, otherwise we'll grab the generic box center.
             Point3F shapePos;
-            if (shape->getTypeMask() & PlayerObjectType) 
+            if (shape->getTypeMask() & (PlayerObjectType | VehicleObjectType))
             {
                MatrixF eye;
 

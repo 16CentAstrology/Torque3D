@@ -28,6 +28,7 @@
 #include "core/stream/fileStream.h"
 #include "math/mMathFn.h"
 #include "console/engineAPI.h"
+#include "console/script.h"
 #include "math/mQuat.h"
 #include "math/mAngAxis.h"
 
@@ -728,7 +729,8 @@ bool ActionMap::nextBoundNode( const char* function, U32 &devMapIndex, U32 &node
       for ( U32 j = nodeIndex; j < dvcMap->nodeMap.size(); j++ )
       {
          const Node* node = &dvcMap->nodeMap[j];
-         if ( !( node->flags & Node::BindCmd ) && ( dStricmp( function, node->consoleFunction ) == 0 ) )
+         if ( ( (node->flags & Node::BindCmd) && (dStricmp(function, node->makeConsoleCommand) == 0 || dStricmp(function, node->breakConsoleCommand) == 0) )
+            || (!(node->flags & Node::BindCmd) && dStricmp( function, node->consoleFunction ) == 0 ) )
          {
             devMapIndex = i;
             nodeIndex = j;
@@ -1804,6 +1806,7 @@ bool ActionMap::handleEvent(const InputEventInfo* pEvent)
    for (SimSet::iterator itr = pActionMapSet->end() - 1;
         itr > pActionMapSet->begin(); itr--) {
       ActionMap* pMap = static_cast<ActionMap*>(*itr);
+
       if (pMap->processAction(pEvent) == true)
          return true;
    }

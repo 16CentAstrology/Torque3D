@@ -57,7 +57,7 @@ class GuiHealthBarHud : public GuiControl
 public:
    GuiHealthBarHud();
 
-   void onRender( Point2I, const RectI &);
+   void onRender( Point2I, const RectI &) override;
    static void initPersistFields();
    DECLARE_CONOBJECT( GuiHealthBarHud );
    DECLARE_CATEGORY( "Gui Game" );
@@ -147,7 +147,7 @@ void GuiHealthBarHud::onRender(Point2I offset, const RectI &updateRect)
    if (!conn)
       return;
    ShapeBase* control = dynamic_cast<ShapeBase*>(conn->getControlObject());
-   if (!control || !(control->getTypeMask() & PlayerObjectType))
+   if (!control || !(control->getTypeMask() & (PlayerObjectType | VehicleObjectType)))
       return;
 
    if(mDisplayEnergy)

@@ -29,9 +29,9 @@
 //**************************************************************************
 class ScreenShotD3D11 : public ScreenShot
 {
-protected:
+public:
 
-   GBitmap* _captureBackBuffer();
+   GBitmap* _captureBackBuffer() override;
 
 };
 

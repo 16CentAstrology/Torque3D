@@ -487,6 +487,10 @@ bool WorldEditor::pasteSelection( bool dropSel )
       if ( !obj )
          continue;
 
+      String baseName = obj->getName();
+      String outName = (baseName.isNotEmpty()) ? Sim::getUniqueName(baseName) : String::EmptyString;
+      obj->assignName(outName);
+
       if (targetGroup)
          targetGroup->addObject( obj );
 
@@ -862,6 +866,9 @@ void WorldEditor::terrainSnapSelection(Selection* sel, U8 modifier, Point3F gizm
 
             case AlignNegZ:
                rot.set(mDegToRad(-90.0f), 0.0f, mDegToRad(180.0f));
+               break;
+               
+            default:
                break;
          }
 
@@ -1995,7 +2002,7 @@ void WorldEditor::on3DMouseMove(const Gui3DMouseEvent & event)
    if ( !mHitObject )
    {
       SceneObject *hitObj = NULL;
-      if ( collide(event, &hitObj) && !hitObj->isDeleted() && hitObj->isSelectionEnabled() && !objClassIgnored(hitObj) )
+      if ( collide(event, &hitObj) && hitObj && !hitObj->isDeleted() && hitObj->isSelectionEnabled() && !objClassIgnored(hitObj) )
       {
          mHitObject = hitObj;
       }
@@ -2056,7 +2063,7 @@ void WorldEditor::on3DMouseDown(const Gui3DMouseEvent & event)
    }   
 
    SceneObject *hitObj = NULL;
-   if ( collide( event, &hitObj ) && hitObj->isSelectionEnabled() && !objClassIgnored( hitObj ) )
+   if ( collide( event, &hitObj ) && hitObj && hitObj->isSelectionEnabled() && !objClassIgnored( hitObj ) )
    {
       mPossibleHitObject = hitObj;
       mNoMouseDrag = true;
@@ -2457,7 +2464,7 @@ static void findDragMeshCallback( SceneObject *obj, void *data )
    if ( dragData->mWorldEditor->objClassIgnored( obj ) ||
         !obj->isSelectionEnabled() ||
         obj->getTypeMask() & ( TerrainObjectType | ProjectileObjectType ) ||
-        dynamic_cast< GroundPlane* >( obj ) ||
+        dynamic_cast< GroundPlane* >( obj ) || dynamic_cast<SubScene*>(obj) ||
         Prefab::getPrefabByChild( obj ) )
    {
       return;

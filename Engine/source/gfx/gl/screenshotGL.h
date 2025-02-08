@@ -29,9 +29,9 @@
 //**************************************************************************
 class ScreenShotGL : public ScreenShot
 {
-protected:
+public:
 
-   GBitmap* _captureBackBuffer();
+   GBitmap* _captureBackBuffer() override;
 
 };
 

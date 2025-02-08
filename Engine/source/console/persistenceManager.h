@@ -221,6 +221,12 @@ protected:
    // Attempts to look up the property in the ParsedObject
    S32 getPropertyIndex(ParsedObject* parsedObject, const char* fieldName, U32 arrayPos = 0);
 
+   // Attempts to look up the special array property in the ParsedObject
+   // This is distinct from getPropertyIndex because while that assumes it's an array'd field
+   // This figures the property in question is one that is specially tagged for implicit, arbitrarily sized lists
+   // Like ConvexShape's 'surfaces' or a spline's 'node' properties
+   S32 getSpecialPropertyAtOffset(ParsedObject* parsedObject, const char* fieldName, U32 offsetPos);
+
    // Gets the amount of indent on the ParsedObject.
    char* getObjectIndent(ParsedObject* object);
 
@@ -272,16 +278,16 @@ protected:
 
    // Write out properties
    // Returns the number of new lines added
-   U32 writeProperties(const Vector<const char*>& properties, const U32 insertLine, const char* objectIndent);
+   U32 writeProperties(const Vector<String>& properties, const U32 insertLine, const char* objectIndent);
    // Write out a new object
-   ParsedObject* writeNewObject(SimObject* object, const Vector<const char*>& properties, const U32 insertLine, ParsedObject* parentObject = NULL);
+   ParsedObject* writeNewObject(SimObject* object, const Vector<String>& properties, const U32 insertLine, ParsedObject* parentObject = NULL);
 
 public:
    PersistenceManager();
    virtual ~PersistenceManager();
 
-   bool onAdd();
-   void onRemove();
+   bool onAdd() override;
+   void onRemove() override;
 
    // Adds an object to the dirty list
    // Optionally changes the object's filename

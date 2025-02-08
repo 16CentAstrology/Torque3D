@@ -498,6 +498,7 @@ public:
       FIELD_ComponentInspectors = BIT(1),       ///< Custom fields used by components. They are likely to be non-standard size/configuration, so 
                                                 ///< They are handled specially
       FIELD_CustomInspectors = BIT(2),          ///< Display as a button in inspectors.
+      FIELD_SpecialtyArrayField = BIT(3)
    };
 
    struct Field
@@ -554,8 +555,8 @@ public:
    /// @name Console Type Interface
    /// @{
 
-   virtual void* getNativeVariable() { return new ( AbstractClassRep* ); } // Any pointer-sized allocation will do.
-   virtual void deleteNativeVariable( void* var ) { delete reinterpret_cast< AbstractClassRep** >( var ); }
+   void* getNativeVariable() override { return new ( AbstractClassRep* ); } // Any pointer-sized allocation will do.
+   void deleteNativeVariable( void* var ) override { delete reinterpret_cast< AbstractClassRep** >( var ); }
 
    /// @}
 
@@ -603,7 +604,7 @@ class ConcreteAbstractClassRep : public AbstractClassRep
 {
 public:
 
-   virtual AbstractClassRep* getContainerChildClass(const bool recurse)
+   AbstractClassRep* getContainerChildClass(const bool recurse) override
    {
       // Fetch container children type.
       AbstractClassRep* pChildren = T::getContainerChildStaticClassRep();
@@ -619,7 +620,7 @@ public:
       return pParent->getContainerChildClass(recurse);
    }
 
-   virtual WriteCustomTamlSchema getCustomTamlSchema(void)
+   WriteCustomTamlSchema getCustomTamlSchema(void) override
    {
       return T::getStaticWriteCustomTamlSchema();
    }
@@ -663,12 +664,12 @@ public:
    };
  
    /// Wrap constructor.
-   ConsoleObject* create() const { return NULL; }
+   ConsoleObject* create() const override { return NULL; }
 
    /// Perform class specific initialization tasks.
    ///
    /// Link namespaces, call initPersistFields() and consoleInit().
-   void init()
+   void init() override
    {
       // Get handle to our parent class, if any, and ourselves (we are our parent's child).
       AbstractClassRep *parent = T::getParentStaticClassRep();
@@ -682,7 +683,7 @@ public:
       T::initPersistFields();
       T::consoleInit();
 
-      EnginePropertyTable::Property* props = new EnginePropertyTable::Property[sg_tempFieldList.size()];
+      EnginePropertyTable::Property* props = new EnginePropertyTable::Property[sg_tempFieldList.size() + 1];
 
       for (int i = 0; i < sg_tempFieldList.size(); ++i)
       {
@@ -712,7 +713,7 @@ public:
    /// @name Console Type Interface
    /// @{
  
-   virtual void setData(void* dptr, S32 argc, const char** argv, const EnumTable* tbl, BitSet32 flag)
+   void setData(void* dptr, S32 argc, const char** argv, const EnumTable* tbl, BitSet32 flag) override
    {
       if (argc == 1)
       {
@@ -723,14 +724,14 @@ public:
           Con::errorf("Cannot set multiple args to a single ConsoleObject*.");
    }
  
-   virtual const char* getData(void* dptr, const EnumTable* tbl, BitSet32 flag)
+   const char* getData(void* dptr, const EnumTable* tbl, BitSet32 flag) override
    {
        T** obj = (T**)dptr;
        return Con::getReturnBuffer(T::__getObjectId(*obj));
    }
  
-   virtual const char* getTypeClassName() { return mClassName; }
-   virtual const bool isDatablock() { return T::__smIsDatablock; };
+   const char* getTypeClassName() override { return mClassName; }
+   const bool isDatablock() override { return T::__smIsDatablock; };
 
    /// @}
  };
@@ -752,7 +753,7 @@ public:
     }
  
    /// Wrap constructor.
-   ConsoleObject* create() const { return new T; }
+   ConsoleObject* create() const override { return new T; }
 };
 
 template< typename T > EnginePropertyTable ConcreteAbstractClassRep< T >::_smPropertyTable(0, NULL);
@@ -825,7 +826,7 @@ class ConsoleObject : public EngineObject
 protected:
 
    /// @deprecated This is disallowed.
-   ConsoleObject(const ConsoleObject&);
+   ConsoleObject(const ConsoleObject&) { mDocsClick = false; };
 
 public:
    /// <summary>
@@ -863,7 +864,7 @@ public:
 public:
 
    /// Get the classname from a class tag.
-   static const char* lookupClassName(const U32 in_classTag);
+   static const char* lookupClassName(const U32 in_classTag) { return ""; };
 
    /// @name Fields
    /// @{
@@ -1205,7 +1206,7 @@ inline bool& ConsoleObject::getDynamicGroupExpand()
    static SimObjectRefConsoleBaseType< className > ptrRefType;         \
    static AbstractClassRep::WriteCustomTamlSchema getStaticWriteCustomTamlSchema();         \
    static AbstractClassRep* getContainerChildStaticClassRep();         \
-   virtual AbstractClassRep* getClassRep() const
+   AbstractClassRep* getClassRep() const override
 
 #define DECLARE_CATEGORY( string )                      \
    static const char* __category() { return string; }

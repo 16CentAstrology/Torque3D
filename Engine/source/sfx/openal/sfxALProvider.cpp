@@ -48,10 +48,10 @@ protected:
       
    };
 
-   void init();
+   void init() override;
 
 public:
-   SFXDevice *createDevice( const String& deviceName, bool useHardware, S32 maxBuffers );
+   SFXDevice *createDevice( const String& deviceName, bool useHardware, S32 maxBuffers ) override;
 
 };
 
@@ -60,7 +60,7 @@ MODULE_BEGIN( OpenAL )
    MODULE_INIT_BEFORE( SFX )
    MODULE_SHUTDOWN_AFTER( SFX )
    
-   SFXALProvider* mProvider;
+   SFXALProvider* mProvider = NULL;
    
    MODULE_INIT
    {
@@ -91,14 +91,13 @@ void SFXALProvider::init()
    }
 
    // Cool, loop through them, and caps em
-   const char *deviceFormat = "OpenAL v%d.%d %s";
+   //const char *deviceFormat = "OpenAL v%d.%d %s";
 
-   char temp[256];
    for( S32 i = 0; i < mALDL->GetNumDevices(); i++ )
    {
       ALDeviceInfo* info = new ALDeviceInfo;
       
-      info->internalName = String( mALDL->GetInternalDeviceName( i ) );
+      //info->internalName = String( mALDL->GetInternalDeviceName( i ) );
       info->name = String( mALDL->GetDeviceName( i ) );
 
       mDeviceInfo.push_back( info );
@@ -115,14 +114,14 @@ SFXALProvider::~SFXALProvider()
 	delete mALDL;
 }
 
-SFXDevice *SFXALProvider::createDevice( const String& deviceName, bool useHardware, S32 maxBuffers )
+SFXDevice* SFXALProvider::createDevice(const String& deviceName, bool useHardware, S32 maxBuffers)
 {
-   ALDeviceInfo *info = dynamic_cast< ALDeviceInfo* >
-      ( _findDeviceInfo( deviceName) );
+   ALDeviceInfo* info = dynamic_cast<ALDeviceInfo*>
+      (_findDeviceInfo(deviceName));
 
    // Do we find one to create?
    if (info)
-      return new SFXALDevice(this, mOpenAL, info->internalName, useHardware, maxBuffers);
+      return new SFXALDevice(this, mOpenAL, info->name, useHardware, maxBuffers);
 
    return NULL;
 }

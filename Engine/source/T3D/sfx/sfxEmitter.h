@@ -41,6 +41,21 @@
 class SFXSource;
 class SFXTrack;
 
+DefineConsoleType(TypeSoundControls, bool)
+class GuiInspectorTypeSoundControls : public GuiInspectorField
+{
+   typedef GuiInspectorField Parent;
+public:
+   GuiBitmapButtonCtrl* mPlayButton;
+   GuiBitmapButtonCtrl* mPauseButton;
+   GuiBitmapButtonCtrl* mStopButton;
+
+   DECLARE_CONOBJECT(GuiInspectorTypeSoundControls);
+   static void consoleInit();
+
+   GuiControl* constructEditControl() override;
+   bool updateRects() override;
+};
 //RDTODO: make 3D sound emitters yield their source when being culled
 
 /// The SFXEmitter is used to place 2D or 3D sounds into a 
@@ -69,7 +84,8 @@ class SFXEmitter : public SceneObject
          DirtyUpdateMask      = BIT(2),
 
          SourcePlayMask       = BIT(3),
-         SourceStopMask       = BIT(4),
+         SourcePauseMask       = BIT(4),
+         SourceStopMask       = BIT(5),
 
          AllSourceMasks = SourcePlayMask | SourceStopMask,
       };
@@ -79,24 +95,23 @@ class SFXEmitter : public SceneObject
       enum Dirty
       {
          Track                      = BIT(  0 ),
-         Filename                   = BIT(  2 ),
-         Volume                     = BIT(  4 ),
-         IsLooping                  = BIT(  5 ),
-         Is3D                       = BIT(  6 ),
-         MinDistance                = BIT(  7 ),
-         MaxDistance                = BIT(  8 ),
-         ConeInsideAngle            = BIT(  9 ),
-         ConeOutsideAngle           = BIT( 10 ),
-         ConeOutsideVolume          = BIT( 11 ),
-         Transform                  = BIT( 12 ),
-         SourceGroup                = BIT( 13 ),
-         OutsideAmbient             = BIT( 14 ),
-         IsStreaming                = BIT( 15 ),
-         FadeInTime                 = BIT( 16 ),
-         FadeOutTime                = BIT( 17 ),
-         Pitch                      = BIT( 18 ),
-         ScatterDistance            = BIT( 19 ),
-         TrackOnly                  = BIT( 20 ),
+         Volume                     = BIT(  1 ),
+         IsLooping                  = BIT(  3 ),
+         Is3D                       = BIT(  4 ),
+         MinDistance                = BIT(  5 ),
+         MaxDistance                = BIT(  6 ),
+         ConeInsideAngle            = BIT(  7 ),
+         ConeOutsideAngle           = BIT( 8 ),
+         ConeOutsideVolume          = BIT( 9 ),
+         Transform                  = BIT( 10 ),
+         SourceGroup                = BIT( 11 ),
+         OutsideAmbient             = BIT( 12 ),
+         IsStreaming                = BIT( 13 ),
+         FadeInTime                 = BIT( 14 ),
+         FadeOutTime                = BIT( 15 ),
+         Pitch                      = BIT( 16 ),
+         ScatterDistance            = BIT( 17 ),
+         TrackOnly                  = BIT( 18 ),
 
          AllDirtyMask               = 0xFFFFFFFF,
       };
@@ -106,6 +121,8 @@ class SFXEmitter : public SceneObject
 
       DECLARE_SOUNDASSET(SFXEmitter, Sound);
       DECLARE_ASSET_NET_SETGET(SFXEmitter, Sound, DirtyUpdateMask);
+      /// returns the shape asset used for this object
+      StringTableEntry getTypeHint() const override { return (getSoundAsset()) ? getSoundAsset()->getAssetName() : StringTable->EmptyString(); }
 
       /// The sound source for the emitter.
       SFXSource *mSource;
@@ -115,10 +132,13 @@ class SFXEmitter : public SceneObject
 
       /// A local profile object used to coax the
       /// sound system to play a custom sound.
-      SFXProfile mLocalProfile;
+      SFXTrack* mLocalProfile;
 
       /// The description used by the local profile.
       SFXDescription mDescription;
+
+      /// The description used by the local profile.
+      SFXDescription *mInstanceDescription;
 
       /// If true playback starts when the emitter
       /// is added to the scene.
@@ -215,28 +235,32 @@ class SFXEmitter : public SceneObject
       /// the emitter source is not already playing.
       void play();
 
+      /// Sends network event to pause playback if 
+      /// the emitter source is already playing.
+      void pause();
+
       /// Sends network event to stop emitter 
       /// playback on all ghosted clients.
       void stop();
 
       // SimObject
-      bool onAdd();
-      void onRemove();
-      void onStaticModified( const char *slotName, const char *newValue = NULL );
-      U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream );
-      void unpackUpdate( NetConnection *conn, BitStream *stream );
-      void setTransform( const MatrixF &mat );
-      void setScale( const VectorF &scale );
-      bool containsPoint( const Point3F& point ) { return false; }
-      void prepRenderImage( SceneRenderState* state );
-      void inspectPostApply();
+      bool onAdd() override;
+      void onRemove() override;
+      void onStaticModified( const char *slotName, const char *newValue = NULL ) override;
+      U32 packUpdate( NetConnection *conn, U32 mask, BitStream *stream ) override;
+      void unpackUpdate( NetConnection *conn, BitStream *stream ) override;
+      void setTransform( const MatrixF &mat ) override;
+      void setScale( const VectorF &scale ) override;
+      bool containsPoint( const Point3F& point ) override { return false; }
+      void prepRenderImage( SceneRenderState* state ) override;
+      void inspectPostApply() override;
 
       static void initPersistFields();
       static void consoleInit();
 
       DECLARE_CONOBJECT( SFXEmitter );
       DECLARE_DESCRIPTION( "A 3D object emitting sound." );
-      DECLARE_CATEGORY( "3D Sound" );
+      DECLARE_CATEGORY("Environment \t FX");
 };
 
 #endif // _SFXEMITTER_H_

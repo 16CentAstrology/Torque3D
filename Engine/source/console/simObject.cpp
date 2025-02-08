@@ -35,15 +35,56 @@
 #include "console/simPersistID.h"
 #include "console/typeValidators.h"
 #include "console/arrayObject.h"
-#include "console/codeBlock.h"
 #include "core/frameAllocator.h"
 #include "core/stream/fileStream.h"
 #include "core/fileObject.h"
 #include "persistence/taml/tamlCustom.h"
 #include "gui/editor/guiInspector.h"
+#include "console/script.h"
 
 #include "sim/netObject.h"
-#include "cinterface/cinterface.h"
+
+ImplementBitfieldType(GameTypeMasksType,
+   "The type of animation effect to apply to this material.\n"
+   "@ingroup GFX\n\n")
+{ SceneObjectTypes::StaticObjectType, "StaticObjectType", "Static Objects.\n" },
+{ SceneObjectTypes::EnvironmentObjectType, "EnvironmentObjectType" , "Objects considered part of the background or environment of a level.\n" },
+{ SceneObjectTypes::TerrainObjectType, "TerrainObjectType" , "Terrain Objects.\n" },
+{ SceneObjectTypes::WaterObjectType, "WaterObjectType", "Water Objects.\n" },
+{ SceneObjectTypes::TriggerObjectType, "TriggerObjectType", "Interactive Trigger Objects.\n" },
+{ SceneObjectTypes::MarkerObjectType, "MarkerObjectType", "Marker Objects, utilized primarily for tooling.\n" },
+{ SceneObjectTypes::LightObjectType, "LightObjectType", "Lights.\n" },
+{ SceneObjectTypes::ZoneObjectType, "ZoneObjectType", "zones.\n" },
+{ SceneObjectTypes::StaticShapeObjectType, "StaticShapeObjectType", "Static Shape Objects. Distinct from StaticObjectType in that Static Shapes have additional functionality and behaviors.\n" },
+{ SceneObjectTypes::DynamicShapeObjectType, "DynamicShapeObjectType", "Any sort of Dynamic Object.\n" },
+{ SceneObjectTypes::GameBaseObjectType, "GameBaseObjectType", "Any Gamebase-based Objects. Objects generally associated to gameplay functionality.\n" },
+{ SceneObjectTypes::GameBaseHiFiObjectType, "GameBaseHiFiObjectType", "Specialised Gamebase-based Objects. currently narrowly used. if at all.\n" },
+{ SceneObjectTypes::ShapeBaseObjectType, "ShapeBaseObjectType", "Any Gamebase-based Objects. Objects generally associated to gameplay functionality.\n" },
+{ SceneObjectTypes::CameraObjectType, "CameraObjectType", "Camera Objects.\n" },
+{ SceneObjectTypes::PlayerObjectType, "PlayerObjectType", "Player Objects.\n" },
+{ SceneObjectTypes::ItemObjectType, "ItemObjectType", "Item Objects.\n" },
+{ SceneObjectTypes::VehicleObjectType, "VehicleObjectType", "Any sort of Vehicle Object.\n" },
+{ SceneObjectTypes::VehicleBlockerObjectType, "VehicleBlockerObjectType", "\n" },
+{ SceneObjectTypes::ProjectileObjectType, "ProjectileObjectType", "Projectiles.\n" },
+{ SceneObjectTypes::ExplosionObjectType, "ExplosionObjectType", "Explosion and Effects.\n" },
+{ SceneObjectTypes::CorpseObjectType, "CorpseObjectType", "Corpses of controlled objects.\n" },
+{ SceneObjectTypes::DebrisObjectType, "DebrisObjectType", "Debris or debris-like things such as shell casings.\n" },
+{ SceneObjectTypes::PhysicalZoneObjectType, "PhysicalZoneObjectType", "Physical Zones. Distinct from triggers in that they have physics forces applications.\n" },
+{ SceneObjectTypes::EntityObjectType, "EntityObjectType", "A generic entity.\n" },
+{ SceneObjectTypes::InteriorLikeObjectType, "InteriorLikeObjectType", "InteriorLikeObjectType (deprecated).\n" },
+{ SceneObjectTypes::TerrainLikeObjectType, "TerrainLikeObjectType", "Pseudo-terrains, like groundplanes, or meshroads.\n" },
+#if defined(AFX_CAP_AFXMODEL_TYPE) 
+{ SceneObjectTypes::afxModelObjectType, "afxModelObjectType", "afx-specific model typemask.\n" },
+#else
+{ SceneObjectTypes::N_A_27, "N_A_27", "unused 27th bit.\n" },
+#endif
+{ SceneObjectTypes::N_A_28, "N_A_28", "unused 28th bit.\n" },
+{ SceneObjectTypes::PathShapeObjectType, "PathShapeObjectType", "Path-following Objects.\n" },
+{ SceneObjectTypes::TurretObjectType, "TurretObjectType", "Turret Objects.\n" },
+{ SceneObjectTypes::N_A_31, "N_A_31", "unused 31st bit.\n" },
+{ SceneObjectTypes::N_A_32, "N_A_32", "unused 32nd bit.\n" },
+
+EndImplementBitfieldType;
 
 IMPLEMENT_CONOBJECT( SimObject );
 
@@ -60,6 +101,8 @@ SimObjectId SimObject::smForcedId = 0;
 bool SimObject::preventNameChanging = false;
 
 IMPLEMENT_CALLBACK(SimObject, onInspectPostApply, void, (SimObject* obj), (obj), "Generic callback for when an object is edited");
+IMPLEMENT_CALLBACK(SimObject, onSelected, void, (SimObject* obj), (obj), "Generic callback for when an object is selected");
+IMPLEMENT_CALLBACK(SimObject, onUnselected, void, (SimObject* obj), (obj), "Generic callback for when an object is un-selected");
 
 namespace Sim
 {
@@ -92,7 +135,7 @@ SimObject::SimObject()
    mNameSpace    = NULL;
    mNotifyList   = NULL;
    mFlags.set( ModStaticFields | ModDynamicFields );
-
+   mPrototype = true;
    mProgenitorFile = StringTable->EmptyString();
 
    mFieldDictionary = NULL;
@@ -161,7 +204,8 @@ void SimObject::initPersistFields()
 
       addProtectedField("inheritFrom", TypeString, Offset(mInheritFrom, SimObject), &setInheritFrom, &defaultProtectedGetFn,
          "Optional Name of object to inherit from as a parent.");
-                  
+
+      addProtectedField("Prototype", TypeBool, Offset(mPrototype, SimObject), &_doPrototype, &defaultProtectedGetFn, "Prototype Methods", AbstractClassRep::FieldFlags::FIELD_ComponentInspectors);
    endGroup( "Ungrouped" );
 
    addGroup( "Object" );
@@ -214,6 +258,15 @@ void SimObject::initPersistFields()
 }
 
 //-----------------------------------------------------------------------------
+bool SimObject::_doPrototype(void* object, const char* index, const char* data)
+{
+   if (!Con::isFunction("PrototypeClass")) return false;
+   if (dAtoi(data) != 1) return false;
+   SimObject* obj = reinterpret_cast<SimObject*>(object);
+   String command = String("PrototypeClass(") + (obj->getName()? String(obj->getName()) : String::ToString(obj->getId())) + ");";
+   Con::evaluate(command.c_str());
+   return false;
+}
 
 String SimObject::describeSelf() const
 {
@@ -319,7 +372,7 @@ void SimObject::writeFields(Stream &stream, U32 tabStop)
       const AbstractClassRep::Field* f = &list[i];
 
       // Skip the special field types.
-      if ( f->type >= AbstractClassRep::ARCFirstCustomField )
+      if ( f->type >= AbstractClassRep::ARCFirstCustomField || f->flag.test(AbstractClassRep::FieldFlags::FIELD_ComponentInspectors))
          continue;
 
       for(U32 j = 0; S32(j) < f->elementCount; j++)
@@ -476,6 +529,14 @@ bool SimObject::save(const char *pcFileName, bool bOnlySelected, const char *pre
 
 }
 
+bool SimObject::saveAppend(const char* pcFileName, bool bOnlySelected, const char* preappend)
+{
+   
+
+   return true;
+
+}
+
 //-----------------------------------------------------------------------------
 
 SimPersistID* SimObject::getOrCreatePersistentId()
@@ -562,7 +623,7 @@ void SimObject::onTamlCustomRead(TamlCustomNodes const& customNodes)
                   // Check common fields.
                   if (field)
                   {
-                     setDataField(fieldName, buf, cField->getFieldValue());
+                     setPrefixedDataField(fieldName, buf, cField->getFieldValue());
                   }
                   else
                   {
@@ -742,7 +803,7 @@ void SimObject::destroySelf()
 class SimObjectDeleteEvent : public SimEvent
 {
 public:
-   void process(SimObject *object)
+   void process(SimObject *object) override
    {
       object->deleteObject();
    }
@@ -860,10 +921,6 @@ bool SimObject::isMethod( const char* methodName )
    if( !methodName || !methodName[0] )
       return false;
 
-   if (CInterface::isMethod(this->getName(), methodName) || CInterface::isMethod(this->getClassName(), methodName)) {
-      return true;
-   }
-
    StringTableEntry stname = StringTable->insert( methodName );
 
    if( getNamespace() )
@@ -919,7 +976,7 @@ void SimObject::assignFieldsFrom(SimObject *parent)
             continue;
 
          // Skip the special field types.
-         if ( f->type >= AbstractClassRep::ARCFirstCustomField )
+         if ( f->type >= AbstractClassRep::ARCFirstCustomField || f->flag.test(AbstractClassRep::FieldFlags::FIELD_ComponentInspectors))
             continue;
             
          // Skip certain fields that we don't want to see copied so we don't
@@ -2160,11 +2217,13 @@ void SimObject::setSelected( bool sel )
    {
       mFlags.set( Selected );
       _onSelected();
+      onSelected_callback(this);
    }
    else
    {
       mFlags.clear( Selected );
       _onUnselected();
+      onUnselected_callback(this);
    }
 }
 
@@ -2479,7 +2538,7 @@ static void sEnumCallback( EngineObject* object )
    if( !simObject )
       return;
       
-   Con::evaluatef( "%s( %i );", sEnumCallbackFunction, simObject->getId() );
+   Con::executef(sEnumCallbackFunction, simObject->getId());
 }
 
 DefineEngineFunction( debugEnumInstances, void, ( const char* className, const char* functionName ),,
@@ -2645,10 +2704,10 @@ DefineEngineMethod( SimObject, dumpMethods, ArrayObject*, (),,
       str.append( e->getPrototypeString() );
 
       str.append( '\n' );
-      if( e->mCode && e->mCode->fullPath )
-         str.append( e->mCode->fullPath );
+      if( e->mModule && e->mModule->getPath() )
+         str.append( e->mModule->getPath() );
       str.append( '\n' );
-      if( e->mCode )
+      if( e->mModule )
          str.append( String::ToString( e->mFunctionLineNumber ) );
 
       str.append( '\n' );
@@ -2670,6 +2729,59 @@ DefineEngineMethod(SimObject, getMethodSigs, ArrayObject*, (bool commands), (fal
    "@return An ArrayObject populated with (name,description) pairs of all methods defined on the object.")
 {
    Namespace* ns = object->getNamespace();
+   if (!ns)
+      return 0;
+
+   ArrayObject* dictionary = new ArrayObject();
+   dictionary->registerObject();
+
+   VectorPtr<Namespace::Entry*> vec(__FILE__, __LINE__);
+   ns->getEntryList(&vec);
+   for (Vector< Namespace::Entry* >::iterator j = vec.begin(); j != vec.end(); j++)
+   {
+      Namespace::Entry* e = *j;
+
+      if (commands)
+      {
+         if ((e->mType < Namespace::Entry::ConsoleFunctionType))
+            continue;
+      }
+      else
+      {
+         if ((e->mType > Namespace::Entry::ScriptCallbackType))
+            continue;
+      }
+      StringBuilder str;
+      str.append("function ");
+      str.append(ns->getName());
+      str.append("::");
+      str.append(e->getPrototypeSig());
+      str.append('\n');
+      str.append("{");
+      String docs = e->getDocString();
+      if (!docs.isEmpty())
+      {
+         str.append("\n/*");
+         str.append(docs);
+         str.append("\n*/");
+      }
+      str.append('\n');
+      str.append("}");
+      dictionary->push_back(e->mFunctionName, str.end());
+   }
+
+   return dictionary;
+}
+
+DefineEngineFunction(getMethodSigsNS, ArrayObject*, (StringTableEntry className, bool commands), (false),
+   "List the methods defined on this object.\n\n"
+   "Each description is a newline-separated vector with the following elements:\n"
+   "- method prototype string.\n"
+   "- Documentation string (not including prototype).  This takes up the remainder of the vector.\n"
+   "@return An ArrayObject populated with (name,description) pairs of all methods defined on the object.")
+{
+   
+   Namespace* ns = Con::lookupNamespace(className);
    if (!ns)
       return 0;
 
@@ -3014,6 +3126,13 @@ DefineEngineMethod( SimObject, setFieldValue, bool, ( const char* fieldName, con
 {
    char fieldNameBuffer[ 1024 ];
    char arrayIndexBuffer[ 64 ];
+
+   if( !fieldName || !fieldName[0] )
+   {
+      AssertFatal(false, "SimObject::setFieldValue - Invalid field name.");
+      Con::errorf( "SimObject::setFieldValue - Invalid field name." );
+      return false;
+   }
    
    // Parse out index if the field is given in the form of 'name[index]'.
    
@@ -3261,7 +3380,34 @@ DefineEngineMethod( SimObject, getFieldCount, S32, (),,
       f = &list[i];
 
       // The special field types do not need to be counted.
-      if ( f->type >= AbstractClassRep::ARCFirstCustomField )
+      if ( f->type >= AbstractClassRep::ARCFirstCustomField || f->flag.test(AbstractClassRep::FieldFlags::FIELD_ComponentInspectors))
+         numDummyEntries++;
+   }
+
+   return list.size() - numDummyEntries;
+}
+
+DefineEngineFunction(getFieldCountNS, S32, (StringTableEntry className), ,
+   "Get the number of static fields on the name space.\n"
+   "@return The number of static fields defined on the object.")
+{
+   Namespace* ns = Con::lookupNamespace(className);
+   if (!ns)
+      return 0;
+   AbstractClassRep* rep = ns->mClassRep;
+   if (!rep)
+      return 0;
+
+   const AbstractClassRep::FieldList& list = rep->mFieldList;
+   const AbstractClassRep::Field* f;
+   U32 numDummyEntries = 0;
+
+   for (S32 i = 0; i < list.size(); i++)
+   {
+      f = &list[i];
+
+      // The special field types do not need to be counted.
+      if (f->type >= AbstractClassRep::ARCFirstCustomField || f->flag.test(AbstractClassRep::FieldFlags::FIELD_ComponentInspectors))
          numDummyEntries++;
    }
 
@@ -3286,10 +3432,46 @@ DefineEngineMethod( SimObject, getField, const char*, ( S32 index ),,
       f = &list[i];
 
       // The special field types can be skipped.
-      if ( f->type >= AbstractClassRep::ARCFirstCustomField )
+      if ( f->type >= AbstractClassRep::ARCFirstCustomField || f->flag.test(AbstractClassRep::FieldFlags::FIELD_ComponentInspectors))
          continue;
 
       if(currentField == index)
+         return f->pFieldname;
+
+      currentField++;
+   }
+
+   // if we found nada, return nada.
+   return "";
+}
+
+DefineEngineFunction(getFieldNS, const char*, (StringTableEntry className,S32 index), ,
+   "Retrieve the value of a static field by index.\n"
+   "@param index The index of the static field.\n"
+   "@return The value of the static field with the given index or \"\".")
+{
+   Namespace* ns = Con::lookupNamespace(className);
+   if (!ns)
+      return 0;
+   AbstractClassRep* rep = ns->mClassRep;
+   if (!rep)
+      return 0;
+
+   const AbstractClassRep::FieldList& list = rep->mFieldList;
+   if ((index < 0) || (index >= list.size()))
+      return "";
+
+   const AbstractClassRep::Field* f;
+   S32 currentField = 0;
+   for (U32 i = 0; i < list.size() && currentField <= index; i++)
+   {
+      f = &list[i];
+
+      // The special field types can be skipped.
+      if (f->type >= AbstractClassRep::ARCFirstCustomField || f->flag.test(AbstractClassRep::FieldFlags::FIELD_ComponentInspectors))
+         continue;
+
+      if (currentField == index)
          return f->pFieldname;
 
       currentField++;

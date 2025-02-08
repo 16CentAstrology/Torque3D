@@ -26,8 +26,8 @@
 #include <typeinfo>
 #include "afx/arcaneFX.h"
 
-#include "console/compiler.h"
 #include "T3D/player.h"
+#include "console/script.h"
 
 #include "afx/afxEffectDefs.h"
 #include "afx/afxPhrase.h"
@@ -61,12 +61,12 @@ public:
   /*C*/                 afxEA_PhraseEffect();
   /*D*/                 ~afxEA_PhraseEffect();
 
-  virtual void          ea_set_datablock(SimDataBlock*);
-  virtual bool          ea_start();
-  virtual bool          ea_update(F32 dt);
-  virtual void          ea_finish(bool was_stopped);
+  void          ea_set_datablock(SimDataBlock*) override;
+  bool          ea_start() override;
+  bool          ea_update(F32 dt) override;
+  void          ea_finish(bool was_stopped) override;
 
-  virtual bool          ea_is_enabled() { return true; }
+  bool          ea_is_enabled() override { return true; }
 };
 
 //~~~~~~~~~~~~~~~~~~~~//
@@ -314,13 +314,10 @@ void afxEA_PhraseEffect::trigger_new_phrase()
     }
     b[0] = '\0';
 
-    Compiler::gSyntaxError = false;
-    //Con::errorf("EVAL [%s]", avar("%s;", buffer));
-    Con::evaluate(avar("%s;", buffer), false, 0);
-    if (Compiler::gSyntaxError)
+    Con::EvalResult result = Con::evaluate(avar("%s;", buffer), false, 0);
+    if (!result.valid)
     {
       Con::errorf("onTriggerCommand \"%s\" -- syntax error", phrase_fx_data->on_trig_cmd);
-      Compiler::gSyntaxError = false;
     }
   }
 
@@ -363,12 +360,12 @@ class afxEA_PhraseEffectDesc : public afxEffectAdapterDesc, public afxEffectDefs
   static afxEA_PhraseEffectDesc desc;
 
 public:
-  virtual bool  testEffectType(const SimDataBlock*) const;
-  virtual bool  requiresStop(const afxEffectWrapperData*, const afxEffectTimingData&) const;
-  virtual bool  runsOnServer(const afxEffectWrapperData*) const { return true; }
-  virtual bool  runsOnClient(const afxEffectWrapperData*) const { return true; }
+  bool  testEffectType(const SimDataBlock*) const override;
+  bool  requiresStop(const afxEffectWrapperData*, const afxEffectTimingData&) const override;
+  bool  runsOnServer(const afxEffectWrapperData*) const override { return true; }
+  bool  runsOnClient(const afxEffectWrapperData*) const override { return true; }
 
-  virtual afxEffectWrapper* create() const { return new afxEA_PhraseEffect; }
+  afxEffectWrapper* create() const override { return new afxEA_PhraseEffect; }
 };
 
 afxEA_PhraseEffectDesc afxEA_PhraseEffectDesc::desc;

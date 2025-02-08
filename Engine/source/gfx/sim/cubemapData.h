@@ -53,7 +53,7 @@ public:
    CubemapData();
    ~CubemapData();
 
-   bool onAdd();
+   bool onAdd() override;
    static void initPersistFields();
 
    DECLARE_CONOBJECT(CubemapData);
@@ -76,9 +76,10 @@ protected:
    DECLARE_IMAGEASSET(CubemapData, CubeMap, onCubemapChanged, GFXStaticTextureSRGBProfile);
    DECLARE_ASSET_SETGET(CubemapData, CubeMap);
 
-   DECLARE_IMAGEASSET_ARRAY(CubemapData, CubeMapFace, 6);
+   DECLARE_IMAGEASSET_ARRAY(CubemapData, CubeMapFace, 6, onCubeMapFaceChanged);
    DECLARE_IMAGEASSET_ARRAY_SETGET(CubemapData, CubeMapFace);
 
+   void onCubeMapFaceChanged() {}
    GFXTexHandle mDepthBuff;
    GFXTextureTargetRef mRenderTarget;
 

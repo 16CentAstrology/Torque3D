@@ -2,10 +2,7 @@
 #define AL_LISTENER_H
 
 #include <array>
-#include <atomic>
 
-#include "AL/al.h"
-#include "AL/alc.h"
 #include "AL/efx.h"
 
 #include "almalloc.h"
@@ -19,13 +16,7 @@ struct ALlistener {
     float Gain{1.0f};
     float mMetersPerUnit{AL_DEFAULT_METERS_PER_UNIT};
 
-    std::atomic_flag PropsClean;
-
-    ALlistener() { PropsClean.test_and_set(std::memory_order_relaxed); }
-
-    DISABLE_ALLOC()
+    DISABLE_ALLOC
 };
-
-void UpdateListenerProps(ALCcontext *context);
 
 #endif

@@ -110,7 +110,7 @@ class DecalManager : public SceneObject
       Vector< GFXVertexBufferHandle<DecalVertex>* > mVBPool;
       Vector< GFXPrimitiveBufferHandle* > mPBPool;
 
-      FreeListChunkerUntyped *mChunkers[3];
+      DecalInstance::DecalDataChunker mChunkers;
 
       #ifdef DECALMANAGER_DEBUG
       Vector<PlaneF> mDebugPlanes;
@@ -157,7 +157,7 @@ class DecalManager : public SceneObject
       U32 _generateConvexHull( const Vector<Point3F> &points, Vector<Point3F> *outPoints );
 
       // Rendering
-      void prepRenderImage( SceneRenderState *state );
+      void prepRenderImage( SceneRenderState *state ) override;
       
       void _generateWindingOrder( const Point3F &cornerPoint, Vector<Point3F> *sortPoints );
 
@@ -166,10 +166,6 @@ class DecalManager : public SceneObject
       void _allocBuffers( DecalInstance *inst );
       void _freeBuffers( DecalInstance *inst );
       void _freePools();
-
-      /// Returns index used to index into the correct sized FreeListChunker for
-      /// allocating vertex and index arrays.
-      S32 _getSizeClass( DecalInstance *inst ) const;
 
       // Hide this from Doxygen
       /// @cond
@@ -184,8 +180,8 @@ class DecalManager : public SceneObject
       bool _createDataFile();
 
       // SceneObject.
-      virtual bool onSceneAdd();
-      virtual void onSceneRemove();   public:
+      bool onSceneAdd() override;
+      void onSceneRemove() override;   public:
 
    public:
 
@@ -270,6 +266,7 @@ class DecalManager : public SceneObject
 
       // SimObject.
       DECLARE_CONOBJECT( DecalManager );
+      DECLARE_CATEGORY("UNLISTED");
       static void consoleInit();
 };
 

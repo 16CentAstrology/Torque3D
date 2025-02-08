@@ -35,7 +35,7 @@ function initRenderManager()
       
       //When hdr is enabled this will be changed to the appropriate format
       format = "GFXFormatR16G16B16A16F";
-      depthFormat = "GFXFormatD24S8";
+      depthFormat = "GFXFormatD32FS8X24"; // 64-bit depth format. Old 32-bit format was "GFXFormatD24S8"
       aaLevel = 0; // -1 = match backbuffer
       
       // The contents of the back buffer before this format token is executed
@@ -79,10 +79,7 @@ function initRenderManager()
    DiffuseRenderPassManager.addManager( new RenderTranslucentMgr(TranslucentBin){ renderOrder = 1.4; processAddOrder = 1.4; } );
    
    DiffuseRenderPassManager.addManager(new RenderObjectMgr(FogBin){ bintype = "ObjectVolumetricFog"; renderOrder = 1.45; processAddOrder = 1.45; } );
-   
-   // Note that the GlowPostFx is triggered after this bin.
-   DiffuseRenderPassManager.addManager( new RenderGlowMgr(GlowBin) { renderOrder = 1.5; processAddOrder = 1.5; } );
-   
+      
    // We render any editor stuff from this bin.  Note that the HDR is
    // completed before this bin to keep editor elements from tone mapping.   
    DiffuseRenderPassManager.addManager( new RenderObjectMgr(EditorBin) { bintype = "Editor"; renderOrder = 1.6; processAddOrder = 1.6; } );
@@ -90,14 +87,11 @@ function initRenderManager()
    // Resolve format change token last.
    DiffuseRenderPassManager.addManager( new RenderPassStateBin(FinalBin)       { renderOrder = 1.7; stateToken = AL_FormatToken; } );
 
-   if(isObject(afxZodiacTerrainRenderer))
-   {
-      DiffuseRenderPassManager.addManager( new afxZodiacTerrainRenderer() { bintype = "TerrainZodiac"; renderOrder = 1.41; processAddOrder = 1.41; } );
-      DiffuseRenderPassManager.addManager( new afxZodiacPolysoupRenderer() { bintype = "PolysoupZodiac"; renderOrder = 1.42; processAddOrder = 1.42; } );
-      DiffuseRenderPassManager.addManager( new afxZodiacGroundPlaneRenderer() { bintype = "GroundPlaneZodiac"; renderOrder = 1.43; processAddOrder = 1.43; } );
-      DiffuseRenderPassManager.addManager( new afxZodiacMeshRoadRenderer() { bintype = "MeshRoadZodiac"; renderOrder = 1.44; processAddOrder = 1.44; } );
-      DiffuseRenderPassManager.addManager( new afxRenderHighlightMgr() { renderOrder = 1.55; processAddOrder = 1.55; } );  // for selection-highlighting
-   }
+   DiffuseRenderPassManager.addManager( new afxZodiacTerrainRenderer() { bintype = "TerrainZodiac"; renderOrder = 1.41; processAddOrder = 1.41; } );
+   DiffuseRenderPassManager.addManager( new afxZodiacPolysoupRenderer() { bintype = "PolysoupZodiac"; renderOrder = 1.42; processAddOrder = 1.42; } );
+   DiffuseRenderPassManager.addManager( new afxZodiacGroundPlaneRenderer() { bintype = "GroundPlaneZodiac"; renderOrder = 1.43; processAddOrder = 1.43; } );
+   DiffuseRenderPassManager.addManager( new afxZodiacMeshRoadRenderer() { bintype = "MeshRoadZodiac"; renderOrder = 1.44; processAddOrder = 1.44;} );
+   DiffuseRenderPassManager.addManager( new afxRenderHighlightMgr() { renderOrder = 1.55; processAddOrder = 1.55;} );  // for selection-highlighting      
 }
 
 /// This is the Default PostFX state block. Put here to prevent any missing object  

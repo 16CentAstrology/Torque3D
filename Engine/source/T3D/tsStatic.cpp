@@ -137,6 +137,7 @@ TSStatic::TSStatic()
    mAlphaFade = 1.0f;
    mPhysicsRep = NULL;
 
+   mCollisionLOD = 0;
    mCollisionType = CollisionMesh;
    mDecalType = CollisionMesh;
 
@@ -238,7 +239,8 @@ void TSStatic::initPersistFields()
    endGroup("Reflection");
 
    addGroup("Collision");
-
+   addField("collisionLOD", TypeS32, Offset(mCollisionLOD, TSStatic),
+      "The level of detail to use for 'Visible Mesh' collision queries.");
    addField("collisionType", TypeTSMeshType, Offset(mCollisionType, TSStatic),
       "The type of mesh data to use for collision queries.");
    addField("decalType", TypeTSMeshType, Offset(mDecalType, TSStatic),
@@ -389,9 +391,10 @@ bool TSStatic::_createShape()
    SAFE_DELETE(mPhysicsRep);
    SAFE_DELETE(mShapeInstance);
    mAmbientThread = NULL;
-   mShape = NULL;
+   //mShape = NULL;
 
-   if(!mShapeAsset.isNull())
+   U32 assetStatus = ShapeAsset::getAssetErrCode(mShapeAsset);
+   if (assetStatus == AssetBase::Ok || assetStatus == AssetBase::UsingFallback)
    {
       //Special-case handling, usually because we set noShape
       mShape = mShapeAsset->getShapeResource();
@@ -530,20 +533,20 @@ void TSStatic::prepCollision()
 
    if (mCollisionType == CollisionMesh || mCollisionType == VisibleMesh)
    {
-      mShape->findColDetails(mCollisionType == VisibleMesh, &mCollisionDetails, &mLOSDetails);
+      mShape->findColDetails(mCollisionType == VisibleMesh, &mCollisionDetails, &mLOSDetails, mCollisionLOD);
       if (mDecalType == mCollisionType)
       {
          mDecalDetailsPtr = &mCollisionDetails;
       }
       else if (mDecalType == CollisionMesh || mDecalType == VisibleMesh)
       {
-         mShape->findColDetails(mDecalType == VisibleMesh, &mDecalDetails, 0);
+         mShape->findColDetails(mDecalType == VisibleMesh, &mDecalDetails, 0, mCollisionLOD);
          mDecalDetailsPtr = &mDecalDetails;
       }
    }
    else if (mDecalType == CollisionMesh || mDecalType == VisibleMesh)
    {
-      mShape->findColDetails(mDecalType == VisibleMesh, &mDecalDetails, 0);
+      mShape->findColDetails(mDecalType == VisibleMesh, &mDecalDetails, 0, mCollisionLOD);
       mDecalDetailsPtr = &mDecalDetails;
    }
 
@@ -603,15 +606,6 @@ void TSStatic::onRemove()
       mCubeReflector.unregisterReflector();
 
    Parent::onRemove();
-}
-
-void TSStatic::_onResourceChanged(const Torque::Path& path)
-{
-   if (path != Path(mShapeName))
-      return;
-
-   _createShape();
-   _updateShouldTick();
 }
 
 void TSStatic::onShapeChanged()
@@ -955,8 +949,10 @@ U32 TSStatic::packUpdate(NetConnection* con, U32 mask, BitStream* stream)
    }
 
    if (stream->writeFlag(mask & UpdateCollisionMask))
+   {
+      stream->write(mCollisionLOD);
       stream->write((U32)mCollisionType);
-
+   }
    if (stream->writeFlag(mask & SkinMask))
       con->packNetStringHandleU(stream, mSkinNameHandle);
 
@@ -1053,6 +1049,7 @@ void TSStatic::unpackUpdate(NetConnection* con, BitStream* stream)
    {
       U32 collisionType = CollisionMesh;
 
+      stream->read(&mCollisionLOD);
       stream->read(&collisionType);
 
       // Handle it if we have changed CollisionType's
@@ -1263,7 +1260,7 @@ bool TSStatic::buildPolyList(PolyListContext context, AbstractPolyList* polyList
       else if (meshType == Bounds)
          polyList->addBox(mObjBox);
       else if (meshType == VisibleMesh)
-         mShapeInstance->buildPolyList(polyList, 0);
+         mShapeInstance->buildPolyListOpcode(0, polyList, box);
       else if (context == PLC_Decal && mDecalDetailsPtr != 0)
       {
          for (U32 i = 0; i < mDecalDetailsPtr->size(); i++)
@@ -1628,8 +1625,11 @@ void TSStatic::updateMaterials()
 
 void TSStatic::getUtilizedAssets(Vector<StringTableEntry>* usedAssetsList)
 {
-   if(!mShapeAsset.isNull() && mShapeAsset->getAssetId() != ShapeAsset::smNoShapeAssetFallback)
+   U32 assetStatus = ShapeAsset::getAssetErrCode(mShapeAsset);
+   if (assetStatus == AssetBase::Ok)
+   {
       usedAssetsList->push_back_unique(mShapeAsset->getAssetId());
+   }
 }
 
 //------------------------------------------------------------------------
@@ -1641,7 +1641,7 @@ void TSStatic::onInspect(GuiInspector* inspector)
 {
    //if (mShapeAsset == nullptr)
       return;
-
+/*
    //Put the GameObject group before everything that'd be gameobject-effecting, for orginazational purposes
    GuiInspectorGroup* materialGroup = inspector->findExistentGroup(StringTable->insert("Materials"));
    if (!materialGroup)
@@ -1709,6 +1709,7 @@ void TSStatic::onInspect(GuiInspector* inspector)
          }
       }
    }
+   */
 }
 #endif
 DefineEngineMethod(TSStatic, getTargetName, const char*, (S32 index), (0),
@@ -1903,4 +1904,18 @@ DefineEngineMethod(TSStatic, getNodeTransform, TransformF, (const char *nodeName
    MatrixF xf(true);
    object->getNodeTransform(nodeName, MatrixF::Identity, &xf);
    return xf;
+}
+
+DefineEngineMethod(TSStatic, setSkinName, void, (const char* name), ,
+   "@brief Apply a new skin to this shape.\n\n"
+
+   "'Skinning' the shape effectively renames the material targets, allowing "
+   "different materials to be used on different instances of the same model.\n\n"
+
+   "@param name name of the skin to apply\n\n"
+
+   "@see skin\n"
+   "@see getSkinName()\n")
+{
+   object->setSkinName(name);
 }
